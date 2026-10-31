@@ -45,23 +45,24 @@ public final class HomeActivity extends AppCompatActivity {
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand=text("✦  Clenzy",26,ink);brand.setTypeface(null,Typeface.BOLD);header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
         MaterialButton settings=button("Settings",this::settings,false);header.addView(settings);page.addView(header);
-        TextView heading=text("Make room for what matters.",19,muted);page.addView(heading);
+        TextView heading=text("A little space.\nA lighter day.",30,ink);heading.setGravity(Gravity.CENTER);heading.setTypeface(null,Typeface.BOLD);page.addView(heading,spaced());
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes(),used=total-free;
-        LinearLayout card=card();card.addView(text("AVAILABLE STORAGE",12,muted));TextView amount=text(size(free),42,ink);amount.setTypeface(null,Typeface.BOLD);card.addView(amount);
-        card.addView(text(size(used)+" used of "+size(total),15,muted));
-        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(1000);bar.setProgress(total>0?(int)(1000.0*used/total):0);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(blue));card.addView(bar,new LinearLayout.LayoutParams(-1,dp(12)));
-        card.addView(text((total>0?(int)(100.0*used/total):0)+"% used · measured on this device",13,muted));page.addView(card,spaced());
-        MaterialButton start=button("START CLEANING",this::startCleaning,true);start.setMinHeight(dp(60));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
-        page.addView(text("Review your files before removing anything personal.",13,muted));
-        page.addView(text("YOUR TOOLS",12,muted),spaced());
-        LinearLayout row=new LinearLayout(this);tool(row,"▣  Large Files","Find files over 100 MB",()->open("large"));tool(row,"▧  Duplicate Files","Compare exact contents",()->open("duplicates"));page.addView(row);
-        LinearLayout row2=new LinearLayout(this);tool(row2,"↓  Downloads","Review downloaded files",()->open("downloads"));tool(row2,"▤  Apps","Find space-heavy apps",this::apps);page.addView(row2);
-        long last=getSharedPreferences("cleanup",0).getLong("lastClean",0);
-        if(last>0)page.addView(text("Last cleanup · "+android.text.format.DateFormat.format("MMM d, h:mm a",last)+"\n"+size(getSharedPreferences("cleanup",0).getLong("lastBytes",0))+" successfully deleted",13,muted),spaced());
-        else page.addView(text("One storage permission. Find large files, downloads and duplicate copies. Review your selection, then clean.",13,muted),spaced());
-        setContentView(scroll);
+        FrameLayout ring=new FrameLayout(this);ring.addView(new StorageRing(this,total>0?(float)used/total:0,dark?Color.rgb(44,57,75):Color.rgb(231,235,242),dark?Color.rgb(140,169,255):blue),new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout numbers=column();numbers.setGravity(Gravity.CENTER);TextView amount=text(size(free),38,ink);amount.setTypeface(null,Typeface.BOLD);numbers.addView(amount);numbers.addView(text("available space",13,muted));ring.addView(numbers,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(218),dp(218));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(8),0,dp(24));page.addView(ring,ringParams);
+        TextView privacy=text("Your files stay on your phone",12,muted);privacy.setGravity(Gravity.CENTER);page.addView(privacy);
+        TextView capacity=text(size(used)+" used  ·  "+size(total)+" total",13,muted);capacity.setGravity(Gravity.CENTER);page.addView(capacity,spaced());
+        MaterialButton start=button("Scan my phone",this::startCleaning,true);start.setMinHeight(dp(58));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
+        TextView explanation=text("Find space to free up. You choose what goes.",12,muted);explanation.setGravity(Gravity.CENTER);page.addView(explanation);
+        TextView memories=text("Your memories come first",15,ink);page.addView(memories,spaced());page.addView(text("Review personal files before removing them.",12,muted));
+        LinearLayout navigation=new LinearLayout(this);navigation.addView(button("Home",this::draw,false),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(button("Apps",this::apps,false),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
+        page.removeView(navigation);
+        LinearLayout shell=column();shell.setBackgroundColor(bg);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));shell.addView(navigation);
+        scroll.setOnApplyWindowInsetsListener(null);page.setPadding(dp(24),dp(16),dp(24),dp(10));
+        shell.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});
+        setContentView(shell);
     }
-    private void startCleaning(){open("storage");}
+    private void startCleaning(){startActivity(new Intent(this,CleanActivity.class));}
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
     private void settings(){
         new AlertDialog.Builder(this).setTitle("Settings").setItems(new String[]{"Theme","Cleanup history","Privacy & access","System storage cleanup","About Clenzy","Photos & videos","Clenzy cache"},(d,w)->{
@@ -71,7 +72,7 @@ public final class HomeActivity extends AppCompatActivity {
             if(w==3){try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}}
             if(w==5)open("photos");
             if(w==6)open("cache");
-            if(w==4)message("Clenzy 1.3.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
+            if(w==4)message("Clenzy 1.4.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
         }).show();
     }
     private void history(){
@@ -111,14 +112,22 @@ public final class HomeActivity extends AppCompatActivity {
             }
             entries.sort(Comparator.comparingLong(AppEntry::bytes).reversed().thenComparing(AppEntry::name));
             runOnUiThread(()->{if(isFinishing()||isDestroyed()||!loading.isShowing())return;loading.dismiss();
-                String[] labels=new String[entries.size()];for(int n=0;n<entries.size();n++){AppEntry app=entries.get(n);labels[n]=app.name()+" · "+(app.bytes()<0?"Size unavailable":size(app.bytes()))+"\n"+(app.lastUsed()>0?"Last used "+android.text.format.DateFormat.format("MMM d",app.lastUsed()):"No usage record available");}
-                new AlertDialog.Builder(this).setTitle("Apps · largest first").setItems(labels,(d,w)->{
-                    AppEntry app=entries.get(w);new AlertDialog.Builder(this).setTitle(app.name()).setMessage((app.cache()<0?"":size(app.cache())+" cache included in app data.\n")+"Open Android app settings to clear its cache, or uninstall it. Uninstalling can remove its local data.")
-                    .setPositiveButton("App settings",(a,b)->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+app.pkg()))))
-                    .setNeutralButton("Uninstall",(a,b)->{try{startActivity(new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+app.pkg())));}catch(ActivityNotFoundException e){message("Unavailable","Use Android app settings to uninstall.");}}).setNegativeButton("Cancel",null).show();
-                }).setPositiveButton("Done",null).show();
+                showApps(entries);
             });
         });
+    }
+    private void showApps(List<AppEntry> entries){
+        page.removeAllViews();page.addView(button("‹  Home",this::draw,false));
+        page.addView(text("Keep your favourites.\nFind your space.",28,ink));page.addView(text("Largest apps first",13,muted));
+        if(entries.isEmpty())page.addView(text("No visible apps were reported by Android.",14,muted));
+        for(AppEntry app:entries){
+            LinearLayout row=card();row.addView(text(app.name()+"  ·  "+(app.bytes()<0?"Size unavailable":size(app.bytes())),16,ink));
+            row.addView(text(app.lastUsed()>0?"Last used "+android.text.format.DateFormat.format("MMM d",app.lastUsed()):"No usage record available",12,muted));
+            MaterialButton manage=button("Manage app",()->new AlertDialog.Builder(this).setTitle(app.name()).setMessage((app.cache()<0?"":size(app.cache())+" cache included in app data.\n")+"Android Settings handles cache removal. Uninstalling may remove local app data.")
+                .setPositiveButton("App settings",(d,w)->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+app.pkg()))))
+                .setNeutralButton("Uninstall",(d,w)->{try{startActivity(new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+app.pkg())));}catch(ActivityNotFoundException e){message("Unavailable","Use Android app settings to uninstall.");}}).setNegativeButton("Cancel",null).show(),false);
+            row.addView(manage);page.addView(row,spaced());
+        }
     }
     private void message(String title,String body){new AlertDialog.Builder(this).setTitle(title).setMessage(body).setPositiveButton("Done",null).show();}
     private LinearLayout column(){LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.VERTICAL);return v;}
@@ -126,6 +135,5 @@ public final class HomeActivity extends AppCompatActivity {
     private LinearLayout card(){LinearLayout v=column();GradientDrawable shape=new GradientDrawable();shape.setColor(surface);shape.setCornerRadius(dp(24));v.setBackground(shape);v.setPadding(dp(22),dp(18),dp(22),dp(18));return v;}
     private LinearLayout.LayoutParams spaced(){LinearLayout.LayoutParams v=new LinearLayout.LayoutParams(-1,-2);v.setMargins(0,dp(18),0,dp(18));return v;}
     private MaterialButton button(String text,Runnable action,boolean primary){MaterialButton b=new MaterialButton(this);b.setText(text);b.setAllCaps(false);b.setCornerRadius(dp(20));b.setMinHeight(dp(48));b.setTextColor(primary?Color.WHITE:((getResources().getConfiguration().uiMode&48)==32?Color.rgb(140,176,255):blue));b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary?blue:surface));b.setOnClickListener(v->action.run());return b;}
-    private void tool(LinearLayout row,String title,String subtitle,Runnable action){LinearLayout c=card();TextView heading=text(title,16,ink);heading.setMinLines(2);c.addView(heading);TextView detail=text(subtitle,12,muted);detail.setMinLines(2);c.addView(detail);c.setMinimumHeight(dp(118));c.setFocusable(true);c.setContentDescription(title+". "+subtitle);c.setOnClickListener(v->action.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(4),dp(4),dp(4),dp(4));row.addView(c,lp);}
     private String size(long bytes){return Formatter.formatFileSize(this,bytes);}
 }

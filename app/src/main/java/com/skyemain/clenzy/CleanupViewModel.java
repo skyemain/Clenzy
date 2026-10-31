@@ -14,7 +14,7 @@ public final class CleanupViewModel extends AndroidViewModel {
     public final Set<String> selected = new HashSet<>();
     public Uri tree;
     public boolean busy, media, deep, ownCache, completed, waitingSettings, sharedStorage, downloadsOnly;
-    public boolean movedToTrash;
+    public boolean movedToTrash, scanFinished, scanFailed, deleting;
     private List<Uri> trashUris=List.of();
     public long recoveredBytes; public int removedFiles, skippedFiles;
     public String status = "Choose Photos & Videos or a folder. Nothing is selected automatically.";
@@ -44,7 +44,7 @@ public final class CleanupViewModel extends AndroidViewModel {
     public void scan(boolean deepScan) {
         if (busy) return;
         if (!sharedStorage && !ownCache && !media && tree == null) { status = "Choose a folder first."; changed(); return; }
-        completed=false;movedToTrash=false; deep = deepScan; busy = true; selected.clear(); files = List.of(); cancellation = new CancellationSignal();
+        scanFinished=false;scanFailed=false;deleting=false;completed=false;movedToTrash=false; deep = deepScan; busy = true; selected.clear(); files = List.of(); cancellation = new CancellationSignal();
         status = "Scanning " + (sharedStorage ? "shared storage" : ownCache ? "Clenzy’s disposable cache" : media ? "authorized photos and videos" : "chosen folder") + " · " + (sharedStorage ? "local files; duplicate reads limited to 16 GiB" : deep ? "deep scan, up to 4 GiB read" : "up to 512 MiB read") + "."; changed();
         worker.execute(() -> {
             try {
@@ -55,15 +55,15 @@ public final class CleanupViewModel extends AndroidViewModel {
                     var scan = documents.scan(tree, cancellation, deep); result = scan.files(); hashed = scan.hashed(); notHashed = scan.notHashed(); truncated = scan.truncated(); skipped = scan.skipped();
                 }
                 String message = result.size()+" files reviewed · "+hashed+" duplicate checks · "+notHashed+" not hashed (unique size, limit or unavailable) · "+skipped+" unreadable checks."+(truncated ? " Scan limit reached." : "");
-                main.post(() -> { files = result; status = message; if(ownCache) for(ReviewFile f:files) selected.add(f.uri()); busy = false; changed(); });
-            } catch (Exception e) { main.post(() -> { status = cancellation.isCanceled() ? "Scan cancelled. Nothing deleted." : "Access unavailable. Choose the folder or grant Photos access again."; busy = false; changed(); }); }
+                main.post(() -> { scanFinished=true;files = result; status = message; if(ownCache) for(ReviewFile f:files) selected.add(f.uri()); busy = false; changed(); });
+            } catch (Exception e) { main.post(() -> { scanFinished=true;scanFailed=true;status = cancellation.isCanceled() ? "Scan cancelled. Nothing deleted." : "Access unavailable. Choose the folder or grant Photos access again."; busy = false; changed(); }); }
         });
     }
     public void cancel() { if (cancellation != null) cancellation.cancel(); }
     public List<ReviewFile> chosen() { List<ReviewFile> result = new ArrayList<>(); for (ReviewFile f : files) if (selected.contains(f.uri())) result.add(f); return result; }
     public void delete() {
         if (busy || selected.isEmpty()) return;
-        List<ReviewFile> chosen = chosen(); busy = true; cancellation = new CancellationSignal(); changed();
+        List<ReviewFile> chosen = chosen(); deleting=true;busy = true; cancellation = new CancellationSignal(); changed();
         worker.execute(() -> {
             try {
                 if (media) {
@@ -81,7 +81,7 @@ public final class CleanupViewModel extends AndroidViewModel {
                         recordHistory(result.bytes(),result.deleted(),result.skipped());
                         status = "Deleted "+result.deleted()+" files · "+result.bytes()+" source bytes · "+result.skipped()+" skipped. Device free space may differ."; files = List.of(); selected.clear(); busy = false; changed(); });
                 }
-            } catch (Exception e) { main.post(() -> { status = "Operation stopped. Scan again to verify remaining items."; busy = false; changed(); }); }
+            } catch (Exception e) { main.post(() -> { scanFailed=true;status = "Operation stopped. Scan again to verify remaining items."; busy = false; changed(); }); }
         });
     }
     private void recordHistory(long bytes,int count,int skipped) {

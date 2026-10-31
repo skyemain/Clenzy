@@ -70,6 +70,9 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-review.png screenshots/Clenzy-Android-review.png
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-light.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-dark.png screenshots/
+            adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-cleanup.png screenshots/
+            adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-selection.png screenshots/
+            adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-results.png screenshots/
       - uses: actions/upload-artifact@v4
         with:
           name: Clenzy-Android-screenshots
@@ -87,7 +90,7 @@ jobs:
           if [ "$(git rev-parse origin/android)" != "${{ github.sha }}" ]; then exit 0; fi
           mkdir -p release
           rm -f release/Clenzy-*-android-candidate.apk
-          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-1.3.0-android-candidate.apk
+          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-1.4.0-android-candidate.apk
           (cd release && sha256sum *.apk > SHA256SUMS.txt)
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

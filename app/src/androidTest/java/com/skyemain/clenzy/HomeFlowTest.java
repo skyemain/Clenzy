@@ -15,9 +15,9 @@ public class HomeFlowTest {
  private TextView find(View view,String text){if(view instanceof TextView && text.equals(((TextView)view).getText().toString()))return (TextView)view;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int n=0;n<group.getChildCount();n++){TextView result=find(group.getChildAt(n),text);if(result!=null)return result;}}return null;}
  @Test public void home_primary_action_opens_contextual_cleanup_choice(){
   try(var scenario=ActivityScenario.launch(HomeActivity.class)){
-   scenario.onActivity(activity->{TextView start=find(activity.getWindow().getDecorView(),"START CLEANING");assertNotNull(start);start.performClick();});
+   scenario.onActivity(activity->{TextView start=find(activity.getWindow().getDecorView(),"Scan my phone");assertNotNull(start);start.performClick();});
    UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-   if(!android.os.Environment.isExternalStorageManager())assertTrue(device.wait(Until.hasObject(By.text("Scan your storage automatically")),5000));device.pressBack();
+   if(!android.os.Environment.isExternalStorageManager())assertTrue(device.wait(Until.hasObject(By.text(java.util.regex.Pattern.compile("(?s)One permission.*"))),5000));else assertTrue(device.wait(Until.hasObject(By.text("Your cleanup")),15000));device.pressBack();
   }
  }
  @Test public void guided_cache_cleanup_reaches_verified_results() throws Exception {
@@ -45,7 +45,7 @@ public class HomeFlowTest {
     try(var scenario=ActivityScenario.launch(HomeActivity.class)){
      InstrumentationRegistry.getInstrumentation().waitForIdleSync();
      scenario.onActivity(activity->{
-      View view=activity.getWindow().getDecorView();assertNotNull(find(view,"START CLEANING"));
+      View view=activity.getWindow().getDecorView();assertNotNull(find(view,"Scan my phone"));
       Bitmap bitmap=Bitmap.createBitmap(view.getWidth(),view.getHeight(),Bitmap.Config.ARGB_8888);view.draw(new Canvas(bitmap));
       try(var output=new FileOutputStream(new File(activity.getExternalFilesDir(null),mode==1?"Clenzy-Android-light.png":"Clenzy-Android-dark.png"))){bitmap.compress(Bitmap.CompressFormat.PNG,100,output);}catch(IOException e){throw new AssertionError(e);}finally{bitmap.recycle();}
      });
