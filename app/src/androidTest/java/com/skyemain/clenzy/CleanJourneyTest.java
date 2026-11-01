@@ -23,7 +23,7 @@ public class CleanJourneyTest {
    try(var scenario=ActivityScenario.launch(CleanActivity.class)){
     java.util.concurrent.atomic.AtomicBoolean ready=new java.util.concurrent.atomic.AtomicBoolean();
     for(int n=0;n<100&&!ready.get();n++){scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);ready.set(m.scanFinished&&!m.busy);});if(!ready.get())Thread.sleep(100);}
-    scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertFalse(m.scanFailed);assertTrue(m.files.stream().anyMatch(f->f.name().equals(first.getName())));});
+    scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertFalse(m.scanFailed);assertTrue(m.files.stream().anyMatch(f->f.name().equals(first.getName())));m.files=m.files.stream().filter(f->f.name().equals(first.getName())||f.name().equals(extra.getName())).toList();assertEquals(2,m.files.size());m.changed();});
     UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());device.waitForIdle();
     assertTrue(device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-Android-cleanup.png")));
     var duplicates=device.wait(Until.findObject(By.descStartsWith("Duplicate copies,")),5000);assertNotNull(duplicates);duplicates.click();
