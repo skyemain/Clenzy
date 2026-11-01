@@ -44,18 +44,14 @@ public final class HomeActivity extends AppCompatActivity {
         scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(16),dp(24),insets.getSystemWindowInsetBottom()+dp(20));return insets;});
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand=text("✦  Clenzy",26,ink);brand.setTypeface(null,Typeface.BOLD);header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        MaterialButton settings=button("Settings",this::settings,false);header.addView(settings);page.addView(header);
-        TextView heading=text("A little space.\nA lighter day.",30,ink);heading.setGravity(Gravity.CENTER);heading.setTypeface(null,Typeface.BOLD);page.addView(heading,spaced());
+        MaterialButton settings=button("",this::settings,false);settings.setIcon(new LineIcon("settings",ink));settings.setIconSize(dp(22));settings.setIconPadding(0);settings.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);settings.setContentDescription("Settings");header.addView(settings,new LinearLayout.LayoutParams(dp(52),dp(48)));page.addView(header);
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes(),used=total-free;
         FrameLayout ring=new FrameLayout(this);ring.addView(new StorageRing(this,total>0?(float)used/total:0,dark?Color.rgb(44,57,75):Color.rgb(231,235,242),dark?Color.rgb(140,169,255):blue),new FrameLayout.LayoutParams(-1,-1));
         LinearLayout numbers=column();numbers.setGravity(Gravity.CENTER);TextView amount=text(size(free),38,ink);amount.setTypeface(null,Typeface.BOLD);amount.setGravity(Gravity.CENTER);numbers.addView(amount);TextView available=text("available space",13,muted);available.setGravity(Gravity.CENTER);numbers.addView(available);ring.addView(numbers,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(218),dp(218));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(8),0,dp(24));page.addView(ring,ringParams);
-        TextView privacy=text("Your files stay on your phone",12,muted);privacy.setGravity(Gravity.CENTER);page.addView(privacy);
+        LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(218),dp(218));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(56),0,dp(24));page.addView(ring,ringParams);
         TextView capacity=text(size(used)+" used  ·  "+size(total)+" total",13,muted);capacity.setGravity(Gravity.CENTER);page.addView(capacity,spaced());
         MaterialButton start=button("Scan my phone",this::startCleaning,true);start.setMinHeight(dp(58));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
-        TextView explanation=text("Find space to free up. You choose what goes.",12,muted);explanation.setGravity(Gravity.CENTER);page.addView(explanation);
-        TextView memories=text("Your memories come first",15,ink);page.addView(memories,spaced());page.addView(text("Review personal files before removing them.",12,muted));
-        LinearLayout navigation=new LinearLayout(this);navigation.addView(button("Home",this::draw,false),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(button("Apps",this::apps,false),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
+        LinearLayout navigation=new LinearLayout(this);navigation.addView(navItem("Home",this::draw),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(navItem("Apps",this::apps),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
         for(int n=0;n<navigation.getChildCount();n++)navigation.getChildAt(n).setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));
         page.removeView(navigation);
         LinearLayout shell=column();shell.setBackgroundColor(bg);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));shell.addView(navigation);
@@ -63,6 +59,7 @@ public final class HomeActivity extends AppCompatActivity {
         shell.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});
         setContentView(shell);shell.requestApplyInsets();
     }
+    private LinearLayout navItem(String title,Runnable action){LinearLayout item=column();item.setGravity(Gravity.CENTER);item.setPadding(0,dp(10),0,dp(10));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(title,blue));item.addView(icon,new LinearLayout.LayoutParams(dp(23),dp(23)));TextView label=text(title,11,muted);item.addView(label);item.setContentDescription(title);item.setFocusable(true);item.setOnClickListener(v->action.run());return item;}
     private void startCleaning(){startActivity(new Intent(this,CleanActivity.class));}
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
     private void settings(){
@@ -73,7 +70,7 @@ public final class HomeActivity extends AppCompatActivity {
             if(w==3){try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}}
             if(w==5)open("photos");
             if(w==6)open("cache");
-            if(w==4)message("Clenzy 1.4.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
+            if(w==4)message("Clenzy 1.5.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
         }).show();
     }
     private void history(){

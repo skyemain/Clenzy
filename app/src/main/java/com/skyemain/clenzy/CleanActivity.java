@@ -29,6 +29,8 @@ public final class CleanActivity extends AppCompatActivity {
     private BottomSheetDialog sheet;
     private String renderedPhase="";
     private TextView busyStatus;
+    private final Map<String,TextView> categoryCounts=new HashMap<>();
+    private List<CleanupGroups.Group> currentGroups=List.of();
     private final java.util.concurrent.ExecutorService previews=java.util.concurrent.Executors.newFixedThreadPool(2);
     private int dp(float value){return Math.round(value*getResources().getDisplayMetrics().density);}
     private String size(long bytes){return Formatter.formatFileSize(this,Math.max(0,bytes));}
@@ -66,35 +68,39 @@ public final class CleanActivity extends AppCompatActivity {
     }
     private void render(){
         String phase=model.busy?(model.deleting?"cleaning":"scan"):model.completed?"results":model.scanFailed?"error":model.scanFinished?"review":"access";
-        if((phase.equals("scan")||phase.equals("cleaning"))&&phase.equals(renderedPhase)&&busyStatus!=null){busyStatus.setText(model.status);return;}
+        if((phase.equals("scan")||phase.equals("cleaning"))&&phase.equals(renderedPhase)&&busyStatus!=null){busyStatus.setText("Checking files…");return;}
         renderedPhase=phase;scaffold(phase.equals("results")?"Clenzy":phase.equals("review")?"Your cleanup":phase.equals("cleaning")?"Cleaning up":"Find your space");
         if(model.busy){
             if(sheet!=null)sheet.dismiss();
-            TextView title=text(model.deleting?"Making room\nfor what’s next.":"Finding a little\nbreathing room.",30,ink);title.setGravity(Gravity.CENTER);body.addView(title,gap(46));
+            TextView title=text(model.deleting?"Cleaning…":"Scanning…",30,ink);title.setGravity(Gravity.CENTER);body.addView(title,gap(46));
             ProgressBar progress=new ProgressBar(this);progress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(accent));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(90),dp(90));lp.gravity=Gravity.CENTER;lp.setMargins(0,dp(24),0,dp(24));body.addView(progress,lp);
-            busyStatus=text(model.status,12,muted);busyStatus.setGravity(Gravity.CENTER);body.addView(busyStatus);
-            body.addView(text(model.deleting?"Removing only your selected files.":"Scanning shared storage on this phone.\nNothing is being deleted.",14,muted),gap(24));
+            busyStatus=text("Checking files…",12,muted);busyStatus.setGravity(Gravity.CENTER);body.addView(busyStatus);
             footer.addView(button(model.deleting?"Stop cleanup":"Cancel scan",false,model::cancel));return;
         }
         if(model.completed){
             TextView mark=text("✓",50,accent);mark.setGravity(Gravity.CENTER);body.addView(mark,gap(20));
-            TextView title=text(model.removedFiles>0?"Room for more.":"Nothing was removed.",29,ink);title.setGravity(Gravity.CENTER);body.addView(title);
+            TextView title=text(model.removedFiles>0?"Cleanup complete":"Nothing removed",29,ink);title.setGravity(Gravity.CENTER);body.addView(title);
             TextView amount=text(size(model.recoveredBytes),40,ink);amount.setGravity(Gravity.CENTER);body.addView(amount);TextView caption=text("verified files deleted",13,muted);caption.setGravity(Gravity.CENTER);body.addView(caption);
             body.addView(text(model.removedFiles+(model.removedFiles==1?" file removed":" files removed"),16,ink),gap(25));if(model.skippedFiles>0)body.addView(text(model.skippedFiles+" files changed or could not be removed.",13,muted));
-            StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());body.addView(text(size(disk.getAvailableBytes())+" available now",16,ink));body.addView(text("Available space is measured separately. Android may update it after cleanup.",12,muted));footer.addView(button("Back to home",true,this::finish));return;
+            StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());body.addView(text(size(disk.getAvailableBytes())+" available now",16,ink));footer.addView(button("Back to home",true,this::finish));return;
         }
         if(model.scanFailed){body.addView(text(model.deleting?"Cleanup stopped.":"Let’s try again.",29,ink),gap(35));body.addView(text(model.status,14,muted));footer.addView(button("Scan again",true,this::begin));return;}
-        if(!model.scanFinished){body.addView(text("A little space.\nA lighter day.",30,ink),gap(45));body.addView(text("Allow storage access to find files you can review. You choose what goes.",14,muted));footer.addView(button("Scan my phone",true,this::begin));return;}
-        List<CleanupGroups.Group> groups=CleanupGroups.from(model.files);long total=0;for(var g:groups)total+=g.bytes();
-        body.addView(text(groups.isEmpty()?"Nothing to review.":size(total),38,ink),gap(18));body.addView(text(groups.isEmpty()?"No matching files were found in the storage scanned.":"Found for you to review.\nKeep what matters. Let the rest go.",14,muted));
-        for(var group:groups){LinearLayout card=column();styleCard(card);TextView name=text(group.title()+"  ›",17,ink);name.setTypeface(null,Typeface.BOLD);card.addView(name);card.addView(text(size(group.bytes())+" · "+group.subtitle(),12,muted));card.setFocusable(true);card.setContentDescription(group.title()+", "+size(group.bytes()));card.setOnClickListener(v->showGroup(group));body.addView(card,gap(12));}
-        body.addView(button("Scan details",false,()->new AlertDialog.Builder(this).setTitle("Scan details").setMessage(model.status+"\nOnly primary shared storage was scanned. Other apps’ private data is excluded.").setPositiveButton("Done",null).show()));
+        if(!model.scanFinished){body.addView(text("Storage access",26,ink),gap(45));body.addView(text("Allow access to scan shared files.",14,muted));footer.addView(button("Scan my phone",true,this::begin));return;}
+        List<CleanupGroups.Group> groups=CleanupGroups.from(model.files);currentGroups=groups;categoryCounts.clear();long total=CleanupGroups.reviewableBytes(groups);
+        body.addView(text(size(total),38,ink),gap(16));body.addView(text("Available to review",12,muted));
+        for(var group:groups){
+            LinearLayout card=new LinearLayout(this);card.setGravity(Gravity.CENTER_VERTICAL);styleCard(card);
+            ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(group.title(),accent));card.addView(icon,new LinearLayout.LayoutParams(dp(28),dp(28)));
+            LinearLayout labels=column();labels.setPadding(dp(12),0,dp(8),0);TextView name=text(group.title(),15,ink);name.setTypeface(null,Typeface.BOLD);labels.addView(name);TextView count=text("",11,muted);labels.addView(count);categoryCounts.put(group.title(),count);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
+            card.addView(text(size(group.bytes())+"  ›",13,ink));card.setFocusable(true);card.setContentDescription(group.title()+", "+size(group.bytes()));card.setOnClickListener(v->{if(group.files().isEmpty())new AlertDialog.Builder(this).setTitle(group.title()).setMessage(group.title().equals("Large videos")?"No videos of 100 MiB or larger were found in scanned storage.":"No matching files were found in scanned storage.").setPositiveButton("Done",null).show();else showGroup(group);});body.addView(card,gap(10));
+        }
+        MaterialButton details=button("Scan details",false,()->new AlertDialog.Builder(this).setTitle("Scan details").setMessage(model.status+"\nPrimary shared storage only. Large videos: 100 MiB+. Categories can overlap; the total counts each file once.").setPositiveButton("Done",null).show());details.setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));body.addView(details);
         selectedLabel=text("",12,muted);footer.addView(selectedLabel);cleanButton=button("Clean selected",true,this::confirm);footer.addView(cleanButton);selection();
     }
-    private void selection(){if(cleanButton==null||selectedLabel==null)return;long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);}
+    private void selection(){for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+" files"+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
     private void confirm(){new AlertDialog.Builder(this).setTitle("Clear "+size(ReviewRules.selectedBytes(model.files,model.selected))+"?").setMessage("You selected "+model.selected.size()+" files. Shared-file deletion is permanent. Originals in duplicate groups will be kept.").setNegativeButton("Keep reviewing",null).setPositiveButton("Confirm cleanup",(d,w)->model.delete()).show();}
     private void showGroup(CleanupGroups.Group group){
-        sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackgroundColor(surface);content.setPadding(dp(22),dp(16),dp(22),dp(16));content.addView(text(group.title(),25,ink));content.addView(text(group.subtitle(),12,muted));
+        sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackgroundColor(surface);content.setPadding(dp(22),dp(16),dp(22),dp(16));content.addView(text(group.title(),25,ink));content.addView(text(group.files().size()+" files",12,muted));
         LinearLayout controls=new LinearLayout(this);RecyclerView list=new RecyclerView(this);list.setLayoutManager(new LinearLayoutManager(this));FileAdapter adapter=new FileAdapter(group);list.setAdapter(adapter);
         controls.addView(button(group.keepers().isEmpty()?"Select all":"Select extra copies",false,()->{for(var f:group.files())if(!group.keepers().contains(f.uri()))model.selected.add(f.uri());adapter.notifyDataSetChanged();selection();}),new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(button("Clear",false,()->{for(var f:group.files())model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));content.addView(button("Done",true,()->sheet.dismiss()));

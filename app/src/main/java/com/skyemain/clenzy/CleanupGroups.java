@@ -11,20 +11,24 @@ public final class CleanupGroups {
         List<ReviewFile> duplicates=ReviewRules.filter(files,ReviewRules.Category.DUPLICATES,System.currentTimeMillis());
         Set<String> extras=ReviewRules.extraCopies(files),keepers=new HashSet<>(),duplicateUris=new HashSet<>();
         for(var f:duplicates){duplicateUris.add(f.uri());if(!extras.contains(f.uri()))keepers.add(f.uri());}
-        if(!duplicates.isEmpty())result.add(new Group("Duplicate copies","Keep one. Remove the extras.",duplicates,keepers));
+        result.add(new Group("Duplicate copies",duplicates.size()+" files",duplicates,keepers));
         Map<String,List<ReviewFile>> categories=new LinkedHashMap<>();
         for(String key:List.of("Large videos","Downloads","Screenshots","Large files"))categories.put(key,new ArrayList<>());
-        for(var f:files){if(duplicateUris.contains(f.uri()))continue;
-            String path=f.uri().toLowerCase(Locale.ROOT),name=f.name().toLowerCase(Locale.ROOT);boolean large=f.bytes()>=100L*1024*1024;
+        for(var f:files){
+            String path=java.net.URI.create(f.uri()).getPath().toLowerCase(Locale.ROOT),name=f.name().toLowerCase(Locale.ROOT);boolean large=f.bytes()>=100L*1024*1024;
             if(large&&name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$"))categories.get("Large videos").add(f);
-            else if(path.contains("/download/")||path.contains("/downloads/"))categories.get("Downloads").add(f);
-            else if(name.contains("screenshot")||path.contains("/screenshots/"))categories.get("Screenshots").add(f);
-            else if(large)categories.get("Large files").add(f);
+            if(path.contains("/download/")||path.contains("/downloads/"))categories.get("Downloads").add(f);
+            if(name.replace("_","").replace("-","").contains("screenshot")||path.contains("/screenshots/"))categories.get("Screenshots").add(f);
+            if(large&&!name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$"))categories.get("Large files").add(f);
         }
-        for(var entry:categories.entrySet())if(!entry.getValue().isEmpty()){
+        for(var entry:categories.entrySet())if(!entry.getKey().equals("Large files")||!entry.getValue().isEmpty()){
             entry.getValue().sort(Comparator.comparingLong(ReviewFile::bytes).reversed());
-            result.add(new Group(entry.getKey(),entry.getValue().size()+" files to review",entry.getValue(),Set.of()));
+            result.add(new Group(entry.getKey(),entry.getValue().size()+" files",entry.getValue(),keepers));
         }
         return result;
+    }
+    public static long reviewableBytes(List<Group> groups){
+        Set<String> counted=new HashSet<>();long total=0;
+        for(var group:groups)for(var f:group.files())if(!group.keepers().contains(f.uri())&&counted.add(f.uri())&&f.bytes()>0)total+=f.bytes();return total;
     }
 }
