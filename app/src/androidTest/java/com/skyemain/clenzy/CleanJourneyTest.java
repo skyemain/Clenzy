@@ -27,7 +27,7 @@ public class CleanJourneyTest {
     for(int n=0;n<100&&!ready.get();n++){scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);ready.set(m.scanFinished&&!m.busy);});if(!ready.get())Thread.sleep(100);}
     scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertFalse(m.scanFailed);assertTrue(m.files.stream().anyMatch(f->f.name().equals(first.getName())));m.files=m.files.stream().filter(f->f.uri().contains(folder.getName())).toList();assertEquals(5,m.files.size());m.changed();});
     UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());device.waitForIdle();
-    assertNotNull(device.wait(Until.findObject(By.descStartsWith("Large videos,")),5000));assertNotNull(device.findObject(By.descStartsWith("Downloads,")));assertNotNull(device.findObject(By.descStartsWith("Screenshots,")));
+    assertNotNull("Large videos visible",device.wait(Until.findObject(By.descStartsWith("Large videos,")),5000));assertNotNull("Downloads visible",device.findObject(By.descStartsWith("Downloads,")));assertNotNull("Screenshots visible",device.findObject(By.descStartsWith("Screenshots,")));
     assertTrue(device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-Android-cleanup.png")));
     var duplicates=device.wait(Until.findObject(By.descStartsWith("Duplicate copies,")),5000);assertNotNull(duplicates);duplicates.click();
     var select=device.wait(Until.findObject(By.text("Select extra copies")),5000);assertNotNull(select);select.click();

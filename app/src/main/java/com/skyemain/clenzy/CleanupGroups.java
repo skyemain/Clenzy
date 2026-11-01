@@ -9,8 +9,8 @@ public final class CleanupGroups {
         List<ReviewFile> files=new ArrayList<>();Set<String> seen=new HashSet<>();for(var f:source)if(seen.add(f.uri()))files.add(f);
         List<Group> result=new ArrayList<>();
         List<ReviewFile> duplicates=ReviewRules.filter(files,ReviewRules.Category.DUPLICATES,System.currentTimeMillis());
-        Set<String> extras=ReviewRules.extraCopies(files),keepers=new HashSet<>(),duplicateUris=new HashSet<>();
-        for(var f:duplicates){duplicateUris.add(f.uri());if(!extras.contains(f.uri()))keepers.add(f.uri());}
+        Set<String> extras=ReviewRules.extraCopies(files),keepers=new HashSet<>();
+        for(var f:duplicates){if(!extras.contains(f.uri()))keepers.add(f.uri());}
         result.add(new Group("Duplicate copies",duplicates.size()+" files",duplicates,keepers));
         Map<String,List<ReviewFile>> categories=new LinkedHashMap<>();
         for(String key:List.of("Large videos","Downloads","Screenshots","Large files"))categories.put(key,new ArrayList<>());

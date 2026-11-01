@@ -54,8 +54,8 @@ public final class CleanActivity extends AppCompatActivity {
     }
     private void permissionSheet(){
         BottomSheetDialog dialog=new BottomSheetDialog(this);sheet=dialog;LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(28));content.setBackgroundColor(surface);
-        content.addView(text("One permission.\nA simpler cleanup.",26,ink));content.addView(text("Find large files, downloads and duplicates without choosing folders.",14,muted));
-        content.addView(text("✓  Your files stay on this phone\n✓  Nothing is deleted without your choice\n✓  Other apps’ private data stays protected",13,muted));
+        content.addView(text("Storage access",26,ink));content.addView(text("Find large files, downloads and duplicates without choosing folders.",14,muted));
+        
         content.addView(button("Continue to storage access",true,()->{dialog.dismiss();if(Build.VERSION.SDK_INT>=30){waitingStorage=true;try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}}else requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE},21);}));
         content.addView(button("Not now",false,dialog::dismiss));dialog.setContentView(content);dialog.show();
     }
@@ -68,7 +68,7 @@ public final class CleanActivity extends AppCompatActivity {
     }
     private void render(){
         String phase=model.busy?(model.deleting?"cleaning":"scan"):model.completed?"results":model.scanFailed?"error":model.scanFinished?"review":"access";
-        if((phase.equals("scan")||phase.equals("cleaning"))&&phase.equals(renderedPhase)&&busyStatus!=null){busyStatus.setText("Checking files…");return;}
+        if((phase.equals("scan")||phase.equals("cleaning"))&&phase.equals(renderedPhase)&&busyStatus!=null){busyStatus.setText(model.deleting?"Removing selected files…":"Checking files…");return;}
         renderedPhase=phase;scaffold(phase.equals("results")?"Clenzy":phase.equals("review")?"Your cleanup":phase.equals("cleaning")?"Cleaning up":"Find your space");
         if(model.busy){
             if(sheet!=null)sheet.dismiss();
@@ -89,9 +89,9 @@ public final class CleanActivity extends AppCompatActivity {
         List<CleanupGroups.Group> groups=CleanupGroups.from(model.files);currentGroups=groups;categoryCounts.clear();long total=CleanupGroups.reviewableBytes(groups);
         body.addView(text(size(total),38,ink),gap(16));body.addView(text("Available to review",12,muted));
         for(var group:groups){
-            LinearLayout card=new LinearLayout(this);card.setGravity(Gravity.CENTER_VERTICAL);styleCard(card);
+            LinearLayout card=new LinearLayout(this);card.setGravity(Gravity.CENTER_VERTICAL);styleCard(card);card.setPadding(dp(16),dp(10),dp(16),dp(10));
             ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(group.title(),accent));card.addView(icon,new LinearLayout.LayoutParams(dp(28),dp(28)));
-            LinearLayout labels=column();labels.setPadding(dp(12),0,dp(8),0);TextView name=text(group.title(),15,ink);name.setTypeface(null,Typeface.BOLD);labels.addView(name);TextView count=text("",11,muted);labels.addView(count);categoryCounts.put(group.title(),count);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
+            LinearLayout labels=column();labels.setPadding(dp(12),0,dp(8),0);TextView name=text(group.title(),15,ink);name.setTypeface(null,Typeface.BOLD);name.setPadding(0,dp(2),0,dp(2));labels.addView(name);TextView count=text("",11,muted);count.setPadding(0,dp(2),0,dp(2));labels.addView(count);categoryCounts.put(group.title(),count);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
             card.addView(text(size(group.bytes())+"  ›",13,ink));card.setFocusable(true);card.setContentDescription(group.title()+", "+size(group.bytes()));card.setOnClickListener(v->{if(group.files().isEmpty())new AlertDialog.Builder(this).setTitle(group.title()).setMessage(group.title().equals("Large videos")?"No videos of 100 MiB or larger were found in scanned storage.":"No matching files were found in scanned storage.").setPositiveButton("Done",null).show();else showGroup(group);});body.addView(card,gap(10));
         }
         MaterialButton details=button("Scan details",false,()->new AlertDialog.Builder(this).setTitle("Scan details").setMessage(model.status+"\nPrimary shared storage only. Large videos: 100 MiB+. Categories can overlap; the total counts each file once.").setPositiveButton("Done",null).show());details.setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));body.addView(details);
@@ -102,7 +102,7 @@ public final class CleanActivity extends AppCompatActivity {
     private void showGroup(CleanupGroups.Group group){
         sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackgroundColor(surface);content.setPadding(dp(22),dp(16),dp(22),dp(16));content.addView(text(group.title(),25,ink));content.addView(text(group.files().size()+" files",12,muted));
         LinearLayout controls=new LinearLayout(this);RecyclerView list=new RecyclerView(this);list.setLayoutManager(new LinearLayoutManager(this));FileAdapter adapter=new FileAdapter(group);list.setAdapter(adapter);
-        controls.addView(button(group.keepers().isEmpty()?"Select all":"Select extra copies",false,()->{for(var f:group.files())if(!group.keepers().contains(f.uri()))model.selected.add(f.uri());adapter.notifyDataSetChanged();selection();}),new LinearLayout.LayoutParams(0,-2,1));
+        controls.addView(button(group.title().equals("Duplicate copies")?"Select extra copies":"Select all",false,()->{for(var f:group.files())if(!group.keepers().contains(f.uri()))model.selected.add(f.uri());adapter.notifyDataSetChanged();selection();}),new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(button("Clear",false,()->{for(var f:group.files())model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));content.addView(button("Done",true,()->sheet.dismiss()));
         GradientDrawable sheetBackground=new GradientDrawable();sheetBackground.setColor(surface);sheetBackground.setCornerRadius(dp(24));content.setBackground(sheetBackground);content.setClipToOutline(true);sheet.setContentView(content,new ViewGroup.LayoutParams(-1,-1));sheet.setOnDismissListener(d->selection());sheet.show();android.widget.FrameLayout bottom=sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);if(bottom!=null){bottom.getLayoutParams().height=(int)(getResources().getDisplayMetrics().heightPixels*.85);bottom.requestLayout();sheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);}
     }
