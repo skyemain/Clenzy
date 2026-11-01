@@ -24,9 +24,10 @@ public final class ReviewRules {
         return result;
     }
     public static Set<String> extraCopies(List<ReviewFile> files) {
-        Set<String> result=new HashSet<>(),seen=new HashSet<>();
-        for(ReviewFile file:files)if(file.digest()!=null&&seen.add(file.digest())) {
-            List<ReviewFile> copies=group(files,file.digest());
+        Map<String,List<ReviewFile>> groups=new HashMap<>();Set<String> result=new HashSet<>();
+        for(ReviewFile file:files)if(file.digest()!=null)groups.computeIfAbsent(file.digest(),key->new ArrayList<>()).add(file);
+        for(List<ReviewFile> copies:groups.values()){
+            copies.sort(Comparator.comparingLong(ReviewFile::modified).thenComparing(ReviewFile::uri));
             for(int n=1;n<copies.size();n++)result.add(copies.get(n).uri());
         }
         return result;
