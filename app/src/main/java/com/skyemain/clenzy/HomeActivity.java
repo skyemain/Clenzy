@@ -59,7 +59,7 @@ public final class HomeActivity extends AppCompatActivity {
         shell.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});
         setContentView(shell);shell.requestApplyInsets();
     }
-    private LinearLayout navItem(String title,Runnable action){LinearLayout item=column();item.setGravity(Gravity.CENTER);item.setPadding(0,dp(10),0,dp(10));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(title,blue));item.addView(icon,new LinearLayout.LayoutParams(dp(23),dp(23)));TextView label=text(title,11,muted);item.addView(label);item.setContentDescription(title);item.setFocusable(true);item.setOnClickListener(v->action.run());return item;}
+    private LinearLayout navItem(String title,Runnable action){LinearLayout item=column();item.setGravity(Gravity.CENTER);item.setPadding(0,dp(10),0,dp(10));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(title,blue));item.addView(icon,new LinearLayout.LayoutParams(dp(23),dp(23)));TextView label=text(title,11,muted);label.setGravity(Gravity.CENTER);item.addView(label);item.setContentDescription(title);item.setFocusable(true);item.setOnClickListener(v->action.run());return item;}
     private void startCleaning(){startActivity(new Intent(this,CleanActivity.class));}
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
     private void settings(){
