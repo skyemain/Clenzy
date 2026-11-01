@@ -62,7 +62,7 @@ public final class CleanActivity extends AppCompatActivity {
     private void scaffold(String heading){
         page=column();page.setBackgroundColor(bg);page.setPadding(dp(24),dp(12),dp(24),dp(12));page.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(12),dp(24),insets.getSystemWindowInsetBottom()+dp(10));return insets;});
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);MaterialButton back=button("‹",false,()->getOnBackPressedDispatcher().onBackPressed());back.setContentDescription("Back");header.addView(back,new LinearLayout.LayoutParams(dp(52),dp(48)));TextView title=text(heading,17,ink);title.setTypeface(null,Typeface.BOLD);header.addView(title);page.addView(header);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);body=column();scroll.addView(body);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));footer=column();page.addView(footer);setContentView(page);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);body=column();scroll.addView(body);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));footer=column();page.addView(footer);setContentView(page);page.requestApplyInsets();page.post(page::requestApplyInsets);
     }
     private void render(){
         String phase=model.busy?(model.deleting?"cleaning":"scan"):model.completed?"results":model.scanFailed?"error":model.scanFinished?"review":"access";
@@ -80,7 +80,7 @@ public final class CleanActivity extends AppCompatActivity {
             TextView mark=text("✓",50,accent);mark.setGravity(Gravity.CENTER);body.addView(mark,gap(20));
             TextView title=text(model.removedFiles>0?"Room for more.":"Nothing was removed.",29,ink);title.setGravity(Gravity.CENTER);body.addView(title);
             TextView amount=text(size(model.recoveredBytes),40,ink);amount.setGravity(Gravity.CENTER);body.addView(amount);TextView caption=text("verified files deleted",13,muted);caption.setGravity(Gravity.CENTER);body.addView(caption);
-            body.addView(text(model.removedFiles+" files removed",16,ink),gap(25));if(model.skippedFiles>0)body.addView(text(model.skippedFiles+" files changed or could not be removed.",13,muted));
+            body.addView(text(model.removedFiles+(model.removedFiles==1?" file removed":" files removed"),16,ink),gap(25));if(model.skippedFiles>0)body.addView(text(model.skippedFiles+" files changed or could not be removed.",13,muted));
             StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());body.addView(text(size(disk.getAvailableBytes())+" available now",16,ink));body.addView(text("Available space is measured separately. Android may update it after cleanup.",12,muted));footer.addView(button("Back to home",true,this::finish));return;
         }
         if(model.scanFailed){body.addView(text(model.deleting?"Cleanup stopped.":"Let’s try again.",29,ink),gap(35));body.addView(text(model.status,14,muted));footer.addView(button("Scan again",true,this::begin));return;}
@@ -98,7 +98,7 @@ public final class CleanActivity extends AppCompatActivity {
         LinearLayout controls=new LinearLayout(this);RecyclerView list=new RecyclerView(this);list.setLayoutManager(new LinearLayoutManager(this));FileAdapter adapter=new FileAdapter(group);list.setAdapter(adapter);
         controls.addView(button(group.keepers().isEmpty()?"Select all":"Select extra copies",false,()->{for(var f:group.files())if(!group.keepers().contains(f.uri()))model.selected.add(f.uri());adapter.notifyDataSetChanged();selection();}),new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(button("Clear",false,()->{for(var f:group.files())model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));content.addView(button("Done",true,()->sheet.dismiss()));
-        sheet.setContentView(content,new ViewGroup.LayoutParams(-1,-1));sheet.setOnDismissListener(d->selection());sheet.show();android.widget.FrameLayout bottom=sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);if(bottom!=null){bottom.getLayoutParams().height=(int)(getResources().getDisplayMetrics().heightPixels*.85);bottom.requestLayout();sheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);}
+        GradientDrawable sheetBackground=new GradientDrawable();sheetBackground.setColor(surface);sheetBackground.setCornerRadius(dp(24));content.setBackground(sheetBackground);content.setClipToOutline(true);sheet.setContentView(content,new ViewGroup.LayoutParams(-1,-1));sheet.setOnDismissListener(d->selection());sheet.show();android.widget.FrameLayout bottom=sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);if(bottom!=null){bottom.getLayoutParams().height=(int)(getResources().getDisplayMetrics().heightPixels*.85);bottom.requestLayout();sheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);}
     }
     private final class FileAdapter extends RecyclerView.Adapter<FileAdapter.Holder>{
         final CleanupGroups.Group group;FileAdapter(CleanupGroups.Group group){this.group=group;}

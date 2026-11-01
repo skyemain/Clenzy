@@ -48,7 +48,7 @@ public final class HomeActivity extends AppCompatActivity {
         TextView heading=text("A little space.\nA lighter day.",30,ink);heading.setGravity(Gravity.CENTER);heading.setTypeface(null,Typeface.BOLD);page.addView(heading,spaced());
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes(),used=total-free;
         FrameLayout ring=new FrameLayout(this);ring.addView(new StorageRing(this,total>0?(float)used/total:0,dark?Color.rgb(44,57,75):Color.rgb(231,235,242),dark?Color.rgb(140,169,255):blue),new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout numbers=column();numbers.setGravity(Gravity.CENTER);TextView amount=text(size(free),38,ink);amount.setTypeface(null,Typeface.BOLD);numbers.addView(amount);numbers.addView(text("available space",13,muted));ring.addView(numbers,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout numbers=column();numbers.setGravity(Gravity.CENTER);TextView amount=text(size(free),38,ink);amount.setTypeface(null,Typeface.BOLD);amount.setGravity(Gravity.CENTER);numbers.addView(amount);TextView available=text("available space",13,muted);available.setGravity(Gravity.CENTER);numbers.addView(available);ring.addView(numbers,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(218),dp(218));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(8),0,dp(24));page.addView(ring,ringParams);
         TextView privacy=text("Your files stay on your phone",12,muted);privacy.setGravity(Gravity.CENTER);page.addView(privacy);
         TextView capacity=text(size(used)+" used  ·  "+size(total)+" total",13,muted);capacity.setGravity(Gravity.CENTER);page.addView(capacity,spaced());
@@ -56,11 +56,12 @@ public final class HomeActivity extends AppCompatActivity {
         TextView explanation=text("Find space to free up. You choose what goes.",12,muted);explanation.setGravity(Gravity.CENTER);page.addView(explanation);
         TextView memories=text("Your memories come first",15,ink);page.addView(memories,spaced());page.addView(text("Review personal files before removing them.",12,muted));
         LinearLayout navigation=new LinearLayout(this);navigation.addView(button("Home",this::draw,false),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(button("Apps",this::apps,false),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
+        for(int n=0;n<navigation.getChildCount();n++)navigation.getChildAt(n).setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));
         page.removeView(navigation);
         LinearLayout shell=column();shell.setBackgroundColor(bg);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));shell.addView(navigation);
         scroll.setOnApplyWindowInsetsListener(null);page.setPadding(dp(24),dp(16),dp(24),dp(10));
         shell.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});
-        setContentView(shell);
+        setContentView(shell);shell.requestApplyInsets();
     }
     private void startCleaning(){startActivity(new Intent(this,CleanActivity.class));}
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
