@@ -18,7 +18,7 @@ public final class CleanupGroups {
             String path=java.net.URI.create(f.uri()).getPath().toLowerCase(Locale.ROOT),name=f.name().toLowerCase(Locale.ROOT);boolean large=f.bytes()>=100L*1024*1024;
             if(large&&name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$"))categories.get("Large videos").add(f);
             if(path.contains("/download/")||path.contains("/downloads/"))categories.get("Downloads").add(f);
-            if(name.replace("_","").replace("-","").contains("screenshot")||path.contains("/screenshots/"))categories.get("Screenshots").add(f);
+            if(isScreenshot(name,path))categories.get("Screenshots").add(f);
             if(large&&!name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$"))categories.get("Large files").add(f);
         }
         for(var entry:categories.entrySet())if(!entry.getKey().equals("Large files")||!entry.getValue().isEmpty()){
@@ -26,6 +26,10 @@ public final class CleanupGroups {
             result.add(new Group(entry.getKey(),entry.getValue().size()+" files",entry.getValue(),keepers));
         }
         return result;
+    }
+    public static boolean isScreenshot(String name,String path){
+        String normalized=(name+"/"+path).toLowerCase(Locale.ROOT).replaceAll("[ _-]","");
+        return normalized.contains("screenshot")||normalized.contains("screencapture")||normalized.contains("screencap/");
     }
     public static long reviewableBytes(List<Group> groups){
         Set<String> counted=new HashSet<>();long total=0;

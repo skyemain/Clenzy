@@ -12,4 +12,9 @@ public class CleanupGroupsTest {
   assertEquals(200000054,CleanupGroups.reviewableBytes(groups));
  }
  @Test public void empty_categories_show_truthful_zero_counts(){var groups=CleanupGroups.from(List.of());assertEquals(4,groups.size());for(var g:groups){assertTrue(g.files().isEmpty());assertEquals(0,g.bytes());}}
+ @org.junit.Test public void samsung_capture_paths_are_recognized(){
+  org.junit.Assert.assertTrue(CleanupGroups.isScreenshot("image.png","/storage/emulated/0/DCIM/Screen captures/image.png"));
+  org.junit.Assert.assertTrue(CleanupGroups.isScreenshot("Screen shot 2026.png","/Pictures/image.png"));
+  org.junit.Assert.assertFalse(CleanupGroups.isScreenshot("holiday.png","/DCIM/Camera/holiday.png"));
+ }
 }

@@ -11,7 +11,7 @@ public final class SharedStorageCleaner {
     private final File root;
     private final Map<String,ReviewFile> scanned=new HashMap<>();
     public java.util.function.IntConsumer progress=count->{};
-    public record Scan(List<ReviewFile> files,int hashed,int notHashed,boolean truncated) {}
+    public record Scan(List<ReviewFile> files,int hashed,int notHashed,boolean truncated,int unreadable) {}
     public SharedStorageCleaner(File root) {try{this.root=root.getCanonicalFile();}catch(IOException e){throw new IllegalArgumentException(e);}}
     private boolean allowed(File file) throws IOException {
         String path=file.getAbsolutePath(),base=root.getPath()+File.separator;
@@ -21,21 +21,22 @@ public final class SharedStorageCleaner {
         return !relative.startsWith(".Trash/")&&!relative.startsWith(".trash/");
     }
     public Scan scan(CancellationSignal cancel,boolean duplicates,boolean downloads) throws Exception {
-        scanned.clear();List<ReviewFile> result=new ArrayList<>();int examined=0;
-        ArrayDeque<File> pending=new ArrayDeque<>();pending.push(downloads?new File(root,"Download"):root);
+        scanned.clear();List<ReviewFile> result=new ArrayList<>();int examined=0,unreadable=0;
+        if(!root.isDirectory()||!root.canRead())throw new IOException("Shared storage is not readable");
+        ArrayDeque<File> pending=new ArrayDeque<>();if(downloads){for(String name:List.of("Download","Downloads")){File folder=new File(root,name);if(folder.exists())pending.add(folder);}}else pending.add(root);
         while(!pending.isEmpty()&&examined<100000){
-            cancel.throwIfCanceled();File directory=pending.pop();
+            cancel.throwIfCanceled();File directory=pending.removeFirst();
             if(!directory.equals(root)&&!allowed(directory))continue;
             try(var stream=Files.newDirectoryStream(directory.toPath())){
                 for(Path path:stream){cancel.throwIfCanceled();if(++examined>100000)break;
                     File f=path.toFile();
                     if(examined%100==0)progress.accept(examined);
-                    if(f.equals(new File(root,"Android"))){pending.push(new File(f,"media"));continue;}
+                    if(f.equals(new File(root,"Android"))){pending.addLast(new File(f,"media"));continue;}
                     if(!allowed(f))continue;
-                    if(Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS))pending.push(f);
+                    if(Files.isDirectory(path,LinkOption.NOFOLLOW_LINKS))pending.addLast(f);
                     else if(Files.isRegularFile(path,LinkOption.NOFOLLOW_LINKS))result.add(new ReviewFile(f.toURI().toString(),f.getName(),f.length(),f.lastModified(),null));
                 }
-            }catch(IOException|SecurityException ignored){}
+            }catch(IOException|SecurityException failure){if(directory.equals(root))throw new IOException("Shared storage cannot be listed",failure);unreadable++;}
         }
         Map<Long,Integer> sizes=new HashMap<>();for(ReviewFile f:result)sizes.merge(f.bytes(),1,Integer::sum);
         int hashed=0;long budget=16L*1024*1024*1024;
@@ -48,7 +49,7 @@ public final class SharedStorageCleaner {
             }
         }
         for(ReviewFile f:result)scanned.put(f.uri(),f);
-        return new Scan(result,hashed,result.size()-hashed,examined>=100000);
+        return new Scan(result,hashed,result.size()-hashed,examined>=100000,unreadable);
     }
     private String digest(File file,CancellationSignal cancel) throws Exception {
         MessageDigest hash=MessageDigest.getInstance("SHA-256");byte[] buffer=new byte[131072];
