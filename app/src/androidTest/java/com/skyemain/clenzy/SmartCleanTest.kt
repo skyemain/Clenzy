@@ -13,6 +13,20 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SmartCleanTest {
+    @Test fun lockSurvivesReopenAndFiltersAlternateCleanupUris(){
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val m=Medium("content://media/external_primary/images/media/99999999","unique-lock-test.jpg",2,123,20,20,0,"Camera",false,0,0)
+        val direct=ReviewFile(m.uri,m.name,m.size,2,null)
+        val local=ReviewFile("file:///storage/emulated/0/DCIM/"+m.name,m.name,m.size,2,null)
+        val other=ReviewFile("file:///storage/emulated/0/DCIM/other.jpg","other.jpg",123,2,null)
+        val locks=MediaLocks(context)
+        try{
+            locks.set(m,true)
+            assertTrue(MediaLocks(context).contains(m.uri))
+            assertEquals(listOf(other),locks.unlocked(listOf(direct,local,other)))
+        }finally{locks.set(m,false)}
+        assertEquals(listOf(direct,local),locks.unlocked(listOf(direct,local)))
+    }
     @Test fun personalOriginalsProtectedWithoutOpeningMedia(){
         val context=ApplicationProvider.getApplicationContext<Context>()
         SmartVision(context).use{vision->

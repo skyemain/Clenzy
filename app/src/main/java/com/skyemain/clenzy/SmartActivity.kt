@@ -25,6 +25,7 @@ import java.util.UUID
 
 class SmartActivity:ComponentActivity(){
     private lateinit var page:LinearLayout
+    private val locks by lazy{MediaLocks(this)}
     private val manager by lazy{WorkManager.getInstance(this)}
     private var results:Map<Medium,Insight> = emptyMap()
     private val selected=linkedSetOf<Medium>()
@@ -93,7 +94,7 @@ class SmartActivity:ComponentActivity(){
             }
         }
     }
-    private fun protected(m:Medium)=results.getValue(m).findings.any{it.protected}
+    private fun protected(m:Medium)=locks.contains(m.uri) || results.getValue(m).findings.any{it.protected}
     private fun dashboard(){
         category=null;screen("AI Smart Clean")
         val candidates=results.filter{(m,i)->!protected(m)&&i.findings.any{it.category!="Review manually"}}.keys
@@ -137,7 +138,7 @@ class SmartActivity:ComponentActivity(){
             }
             if(pair.size==1)row.addView(Space(this),LinearLayout.LayoutParams(0,1,1f))
         }
-        val kept=results.count{(_,i)->i.findings.any{it.category=="Protected"}}
+        val kept=results.count{(m,i)->locks.contains(m.uri)||i.findings.any{it.category=="Protected"}}
         if(kept>0)cards.addView(MaterialButton(this).apply{text="Protected   ·   $kept files";isAllCaps=false;setOnClickListener{category="Protected";filter="All";review()}})
         button("Scan again",this::rescan)
     }
@@ -148,7 +149,7 @@ class SmartActivity:ComponentActivity(){
     private fun review(){
         val cat=category?:return dashboard();screen(cat)
         button("Scan again",this::rescan)
-        val rows=results.keys.filter{m->results.getValue(m).findings.any{it.category==cat} && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
+        val rows=results.keys.filter{m->(results.getValue(m).findings.any{it.category==cat} || (cat=="Protected" && locks.contains(m.uri))) && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
         val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
         val controls=LinearLayout(this);page.addView(controls)
         fun chip(name:String,action:()->Unit):MaterialButton{
@@ -159,10 +160,11 @@ class SmartActivity:ComponentActivity(){
         chip("Sort"){AlertDialog.Builder(this).setItems(arrayOf("Recommended","Largest","Oldest","Newest")){_,n->sort=n;review()}.show()}
         chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();AlertDialog.Builder(this).setItems(opts){_,n->filter=opts[n];review()}.show()}
         val grid=GridView(this);grid.numColumns=2;grid.horizontalSpacing=dp(8);grid.verticalSpacing=dp(8);page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
-        val eligible=rows.filterNot{protected(it)}
+        fun eligible()=rows.filterNot{protected(it)}
         lateinit var allButton:MaterialButton
         lateinit var action:MaterialButton
         fun updateActions(){
+            val eligible=eligible()
             allButton.isEnabled=eligible.isNotEmpty()
             allButton.text=if(eligible.isNotEmpty() && selected.containsAll(eligible)) "Clear all" else "Select all"
             action.visibility=if(selected.isEmpty()) View.GONE else View.VISIBLE
@@ -172,15 +174,27 @@ class SmartActivity:ComponentActivity(){
             override fun getView(p:Int,v:View?,parent:ViewGroup):View{val m=sorted[p];val cell=LinearLayout(this@SmartActivity);cell.orientation=LinearLayout.VERTICAL;cell.setPadding(dp(8),dp(8),dp(8),dp(8));val photo=ImageView(this@SmartActivity).apply{scaleType=ImageView.ScaleType.CENTER_CROP};cell.addView(photo,LinearLayout.LayoutParams(-1,dp(110)));thumbLoader(photo,m)
                 val t=TextView(this@SmartActivity);t.text=bytes(m.size);cell.addView(t)
                 photo.contentDescription="Details for ${m.name}"
+                val locked=locks.contains(m.uri)
+                val lock=android.widget.ToggleButton(this@SmartActivity).apply{
+                    textOn="Locked";textOff="Lock";isChecked=locked;text=if(locked)textOn else textOff
+                    contentDescription=if(locked)"Unlock ${m.name}" else "Lock ${m.name}"
+                }
+                cell.addView(lock)
+                lock.setOnCheckedChangeListener{_,on->
+                    if(submitting){lock.isEnabled=false;return@setOnCheckedChangeListener}
+                    locks.set(m,on);selected.remove(m)
+                    if(cat=="Protected" && !on && results.getValue(m).findings.none{it.category==cat})review()
+                    else {notifyDataSetChanged();updateActions()}
+                }
                 val check=CheckBox(this@SmartActivity);check.text=if(protected(m))"Kept" else "Select";check.isEnabled=!protected(m);check.isChecked=m in selected;cell.addView(check)
                 check.setOnCheckedChangeListener{_,yes->if(yes)selected.add(m) else selected.remove(m);updateActions()}
                 cell.setOnClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
                     val options=(listOf("Preview","Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
-                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+results.getValue(m).findings.first{it.category==cat}.reason).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
-                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
+                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+(if(locks.contains(m.uri))"Locked by you" else results.getValue(m).findings.first{it.category==cat}.reason)).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
+                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,true) else if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
                     }}.show()};return cell}}
         grid.adapter=adapter
-        allButton=chip("Select all"){if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
+        allButton=chip("Select all"){val eligible=eligible();if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
         action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}
         updateActions()
     }
