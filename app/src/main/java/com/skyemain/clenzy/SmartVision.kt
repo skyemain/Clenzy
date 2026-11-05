@@ -32,14 +32,22 @@ internal class SmartVision(val context:Context):java.io.Closeable{
         return requireNotNull(r.openInputStream(uri).use{BitmapFactory.decodeStream(it,null,opts)})
     }
     fun analyze(m:Medium,check:()->Unit):Insight{
+        check()
+        if (m.source == "Camera" || m.source == "WhatsApp sent") {
+            return Insight(listOf(Finding("Protected","Possible personal original",true)), emptyList(),0.0)
+        }
         val hashes=mutableListOf<Long>();val words=StringBuilder();val labels=mutableSetOf<String>()
         var person=false;var qr=false;var sharp=0.0;var quality:String?=null
         fun frame(b:Bitmap,rotation:Int){
             try{
                 check();val visual=InputImage.fromBitmap(b,rotation)
                 words.append(' ').append(Tasks.await(text.process(visual)).text)
+                val document = SmartRules.important.containsMatchIn(words.toString().lowercase(java.util.Locale.ROOT))
+                if (document) return
                 person=person || Tasks.await(faces.process(visual)).isNotEmpty()
+                if (person) return
                 qr=qr || Tasks.await(barcode.process(visual)).isNotEmpty()
+                if (qr) return
                 labels.addAll(Tasks.await(label.process(visual)).map{it.text})
                 val small=Bitmap.createScaledBitmap(b,64,64,true)
                 val pixels=IntArray(4096);small.getPixels(pixels,0,64,0,0,64,64)
@@ -61,6 +69,7 @@ internal class SmartVision(val context:Context):java.io.Closeable{
                 if(Build.VERSION.SDK_INT>=27){
                     val scale=720.0/max(1,max(m.width,m.height))
                     for(percent in if(m.duration>3000)listOf(15,50,85) else listOf(50)){
+                        if(person || qr || SmartRules.important.containsMatchIn(words.toString().lowercase(java.util.Locale.ROOT))) break
                         check();frame(requireNotNull(v.getScaledFrameAtTime(m.duration*10*percent,MediaMetadataRetriever.OPTION_CLOSEST_SYNC,(m.width*scale).toInt().coerceIn(1,720),(m.height*scale).toInt().coerceIn(1,720))),0)
                     }
                 }else throw java.io.IOException("Frame sampling unavailable")

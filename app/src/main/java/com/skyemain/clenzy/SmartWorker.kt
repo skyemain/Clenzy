@@ -39,8 +39,9 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
             if(accessible==0)return@withContext Result.failure(workDataOf("error" to "Media access is unavailable."))
             val sizes=all.groupingBy{it.size}.eachCount();val results=linkedMapOf<Medium,Insight>();var photos=0;var videos=0;var last=0L
             SmartStore(applicationContext).use{db->SmartVision(applicationContext).use{vision->
+                val cachedItems=db.matchingCache(all)
                 for(m in all){
-                    job.ensureActive();val cached=db.cached(m)
+                    job.ensureActive();val cached=cachedItems.remove(m.uri)
                     var i=cached?.takeIf{it.complete}?:try{vision.analyze(m){job.ensureActive()}}catch(e:Exception){
                         job.ensureActive();Insight(listOf(Finding("Review manually","Analysis unavailable · keep for manual review",true)),emptyList(),0.0,complete=false)
                     }

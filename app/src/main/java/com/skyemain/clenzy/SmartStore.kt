@@ -31,6 +31,17 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
     }
     override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int)=Unit
     fun cached(m:Medium):Insight?=readableDatabase.rawQuery("SELECT analysis FROM cache WHERE uri=? AND freshness=?",arrayOf(m.uri,m.freshness)).use{if(it.moveToFirst()) Insight.decode(it.getString(0)) else null}
+    fun matchingCache(media:List<Medium>):MutableMap<String,Insight>{
+        val wanted=media.associateBy{it.uri}
+        val found=HashMap<String,Insight>()
+        readableDatabase.rawQuery("SELECT uri,freshness,analysis FROM cache",null).use{cursor->
+            while(cursor.moveToNext()){
+                val uri=cursor.getString(0)
+                if(wanted[uri]?.freshness==cursor.getString(1)) found[uri]=Insight.decode(cursor.getString(2))
+            }
+        }
+        return found
+    }
     fun cache(m:Medium,i:Insight){writableDatabase.execSQL("INSERT OR REPLACE INTO cache VALUES(?,?,?)",arrayOf(m.uri,m.freshness,i.encode()))}
     fun retain(group:String,m:Medium){
         writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(group,"keeper",m.uri))

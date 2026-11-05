@@ -96,19 +96,52 @@ class SmartActivity:ComponentActivity(){
     private fun dashboard(){
         category=null;screen("AI Smart Clean")
         val candidates=results.filter{(m,i)->!protected(m)&&i.findings.any{it.category!="Review manually"}}.keys
-        label("${bytes(candidates.sumOf{it.size})} to review",25)
-        label("${results.size} media · ${candidates.size} candidates · ${results.keys.count{protected(it)}} protected",14)
-        label("${results.values.count{it.complete}} visually analyzed",12)
-        val cats=results.values.flatMap{it.findings}.map{it.category}.distinct().sorted()
-        val list=ListView(this);page.addView(list,LinearLayout.LayoutParams(-1,0,1f))
-        val groups=cats.map{cat->results.filterValues{it.findings.any{it.category==cat}}.keys}
-        list.adapter=object:BaseAdapter(){override fun getCount()=cats.size;override fun getItem(p:Int)=cats[p];override fun getItemId(p:Int)=p.toLong()
-            override fun getView(p:Int,v:View?,parent:ViewGroup):View{val group=groups[p];val card=LinearLayout(this@SmartActivity);card.gravity=Gravity.CENTER_VERTICAL;thumbnail(card,group.first());val t=TextView(this@SmartActivity);t.text="${cats[p]}\n${group.size} files · ${bytes(group.sumOf{it.size})}";t.setPadding(dp(12),dp(12),0,dp(12));card.addView(t);return card}}
-        list.setOnItemClickListener{_,_,p,_->category=cats[p];filter="All";review()}
+        val eligible=candidates.toSet()
+        val grouped=linkedMapOf<String,MutableList<Medium>>()
+        for((item,insight) in results){
+            for(finding in insight.findings.distinctBy{it.category}){
+                if(finding.category!="Protected")grouped.getOrPut(finding.category){mutableListOf()}.add(item)
+            }
+        }
+        val hero=LinearLayout(this).apply{
+            orientation=LinearLayout.VERTICAL
+            background=GradientDrawable().apply{setColor(0xff163e34.toInt());cornerRadius=dp(18).toFloat()}
+            setPadding(dp(18),dp(12),dp(18),dp(14))
+        }
+        fun heroLine(value:String,size:Int)=TextView(this).apply{text=value;textSize=size.toFloat();setTextColor(android.graphics.Color.WHITE);hero.addView(this)}
+        heroLine("${bytes(candidates.sumOf{it.size})} to review",29).setTypeface(null,Typeface.BOLD)
+        heroLine("${eligible.size} candidates · ${results.size} media checked",14)
+        page.addView(hero)
+        val scroll=ScrollView(this);val cards=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        scroll.addView(cards);page.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        val dark=(resources.configuration.uiMode and 48)==32
+        val priority=listOf("Duplicate photos","Similar photos","Screenshots","Shared videos")
+        val names=grouped.keys.sortedWith(compareBy<String>{priority.indexOf(it).let{n->if(n<0)99 else n}}.thenBy{it})
+        for(pair in names.chunked(2)){
+            val row=LinearLayout(this);cards.addView(row)
+            for(cat in pair){
+                val members=grouped.getValue(cat)
+                val card=LinearLayout(this).apply{
+                    orientation=LinearLayout.VERTICAL
+                    background=GradientDrawable().apply{cornerRadius=dp(15).toFloat();setColor(if(dark)0xff202d29.toInt() else -1);setStroke(dp(1),if(dark)0xff40524a.toInt() else 0xffd7e2dc.toInt())}
+                    clipToOutline=true;isFocusable=true
+                    setOnClickListener{category=cat;filter="All";review()}
+                }
+                val image=ImageView(this).apply{scaleType=ImageView.ScaleType.CENTER_CROP;setBackgroundColor(0xff405d52.toInt());setImageResource(android.R.drawable.ic_menu_gallery)}
+                card.addView(image,LinearLayout.LayoutParams(-1,dp(80)));thumbLoader(image,members.first())
+                val name=TextView(this).apply{text=cat;textSize=16f;setTypeface(null,Typeface.BOLD);setPadding(dp(10),dp(6),dp(10),0)}
+                card.addView(name)
+                card.addView(TextView(this).apply{text="${members.size} files · ${bytes(members.sumOf{it.size})}";setPadding(dp(10),0,dp(10),dp(8))})
+                row.addView(card,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(3),dp(7),dp(3),0)})
+            }
+            if(pair.size==1)row.addView(Space(this),LinearLayout.LayoutParams(0,1,1f))
+        }
+        val kept=results.count{(_,i)->i.findings.any{it.category=="Protected"}}
+        if(kept>0)cards.addView(MaterialButton(this).apply{text="Protected   ·   $kept files";isAllCaps=false;setOnClickListener{category="Protected";filter="All";review()}})
         button("Scan again"){landing()}
     }
     private fun thumbLoader(image:ImageView,m:Medium){
-        if(Build.VERSION.SDK_INT>=29)lifecycleScope.launch{val b=withContext(Dispatchers.IO){runCatching{contentResolver.loadThumbnail(Uri.parse(m.uri),android.util.Size(160,160),null)}.getOrNull()};if(image.isAttachedToWindow)image.setImageBitmap(b)}
+        if(Build.VERSION.SDK_INT>=29)lifecycleScope.launch{val b=withContext(Dispatchers.IO){runCatching{contentResolver.loadThumbnail(Uri.parse(m.uri),android.util.Size(160,160),null)}.getOrNull()};if(b!=null)image.setImageBitmap(b)}
     }
     private fun thumbnail(row:LinearLayout,m:Medium){val image=ImageView(this);image.scaleType=ImageView.ScaleType.CENTER_CROP;row.addView(image,LinearLayout.LayoutParams(dp(58),dp(58)));thumbLoader(image,m)}
     private fun review(){
@@ -122,7 +155,7 @@ class SmartActivity:ComponentActivity(){
         val grid=GridView(this);grid.numColumns=2;grid.horizontalSpacing=dp(8);grid.verticalSpacing=dp(8);page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
         lateinit var action:MaterialButton
         val adapter=object:BaseAdapter(){override fun getCount()=sorted.size;override fun getItem(p:Int)=sorted[p];override fun getItemId(p:Int)=p.toLong()
-            override fun getView(p:Int,v:View?,parent:ViewGroup):View{val m=sorted[p];val cell=LinearLayout(this@SmartActivity);cell.orientation=LinearLayout.VERTICAL;cell.setPadding(dp(8),dp(8),dp(8),dp(8));thumbnail(cell,m)
+            override fun getView(p:Int,v:View?,parent:ViewGroup):View{val m=sorted[p];val cell=LinearLayout(this@SmartActivity);cell.orientation=LinearLayout.VERTICAL;cell.setPadding(dp(8),dp(8),dp(8),dp(8));val photo=ImageView(this@SmartActivity).apply{scaleType=ImageView.ScaleType.CENTER_CROP};cell.addView(photo,LinearLayout.LayoutParams(-1,dp(110)));thumbLoader(photo,m)
                 val t=TextView(this@SmartActivity);t.text="${m.name}\n${bytes(m.size)} · ${m.source}\n${results.getValue(m).findings.first{it.category==cat}.reason}";t.maxLines=5;cell.addView(t)
                 val check=CheckBox(this@SmartActivity);check.text=if(protected(m))"Kept" else "Select";check.isEnabled=!protected(m);check.isChecked=m in selected;cell.addView(check)
                 check.setOnCheckedChangeListener{_,yes->if(yes)selected.add(m) else selected.remove(m);action.text="Review selection (${selected.size})"}
