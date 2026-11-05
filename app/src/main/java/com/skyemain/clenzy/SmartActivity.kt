@@ -149,35 +149,49 @@ class SmartActivity:ComponentActivity(){
         val rows=results.keys.filter{m->results.getValue(m).findings.any{it.category==cat} && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
         val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
         val controls=LinearLayout(this);page.addView(controls)
-        fun chip(name:String,action:()->Unit){controls.addView(MaterialButton(this).apply{text=name;isAllCaps=false;setOnClickListener{action()}},LinearLayout.LayoutParams(0,-2,1f))}
+        fun chip(name:String,action:()->Unit):MaterialButton{
+            val control=MaterialButton(this).apply{text=name;isAllCaps=false;setOnClickListener{action()}}
+            controls.addView(control,LinearLayout.LayoutParams(0,-2,1f))
+            return control
+        }
         chip("Sort"){AlertDialog.Builder(this).setItems(arrayOf("Recommended","Largest","Oldest","Newest")){_,n->sort=n;review()}.show()}
         chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();AlertDialog.Builder(this).setItems(opts){_,n->filter=opts[n];review()}.show()}
         val grid=GridView(this);grid.numColumns=2;grid.horizontalSpacing=dp(8);grid.verticalSpacing=dp(8);page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
+        val eligible=rows.filterNot{protected(it)}
+        lateinit var allButton:MaterialButton
         lateinit var action:MaterialButton
+        fun updateActions(){
+            allButton.isEnabled=eligible.isNotEmpty()
+            allButton.text=if(eligible.isNotEmpty() && selected.containsAll(eligible)) "Clear all" else "Select all"
+            action.visibility=if(selected.isEmpty()) View.GONE else View.VISIBLE
+            action.text="Move to Trash (${selected.size})"
+        }
         val adapter=object:BaseAdapter(){override fun getCount()=sorted.size;override fun getItem(p:Int)=sorted[p];override fun getItemId(p:Int)=p.toLong()
             override fun getView(p:Int,v:View?,parent:ViewGroup):View{val m=sorted[p];val cell=LinearLayout(this@SmartActivity);cell.orientation=LinearLayout.VERTICAL;cell.setPadding(dp(8),dp(8),dp(8),dp(8));val photo=ImageView(this@SmartActivity).apply{scaleType=ImageView.ScaleType.CENTER_CROP};cell.addView(photo,LinearLayout.LayoutParams(-1,dp(110)));thumbLoader(photo,m)
-                val t=TextView(this@SmartActivity);t.text="${m.name}\n${bytes(m.size)} · ${m.source}\n${results.getValue(m).findings.first{it.category==cat}.reason}";t.maxLines=5;cell.addView(t)
+                val t=TextView(this@SmartActivity);t.text=bytes(m.size);cell.addView(t)
+                photo.contentDescription="Details for ${m.name}"
                 val check=CheckBox(this@SmartActivity);check.text=if(protected(m))"Kept" else "Select";check.isEnabled=!protected(m);check.isChecked=m in selected;cell.addView(check)
-                check.setOnCheckedChangeListener{_,yes->if(yes)selected.add(m) else selected.remove(m);action.text="Review selection (${selected.size})"}
+                check.setOnCheckedChangeListener{_,yes->if(yes)selected.add(m) else selected.remove(m);updateActions()}
                 cell.setOnClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
                     val options=(listOf("Preview","Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
-                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
+                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+results.getValue(m).findings.first{it.category==cat}.reason).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
                         results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
                     }}.show()};return cell}}
         grid.adapter=adapter
-        chip("Select all"){val eligible=rows.filterNot{protected(it)};if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();action.text="Review selection (${selected.size})"}
-        action=button("Review selection (${selected.size})"){if(selected.isNotEmpty()&&!submitting)confirm()};button("Back to results"){dashboard()}
+        allButton=chip("Select all"){if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
+        action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}
+        updateActions()
     }
     private fun confirm(){
         if(Build.VERSION.SDK_INT<30){AlertDialog.Builder(this).setMessage("System Trash requires Android 11 or later. Use Preview to manage media in your gallery.").setPositiveButton("OK",null).show();return}
         if(selected.size>2000){Toast.makeText(this,"Select up to 2,000 files per request.",Toast.LENGTH_LONG).show();return}
-        AlertDialog.Builder(this).setTitle("Move ${selected.size} files to Trash?").setMessage("${bytes(selected.sumOf{it.size})} selected. Android will ask you to confirm.")
-            .setNegativeButton("Keep reviewing",null).setPositiveButton("Continue"){_,_->submitting=true;lifecycleScope.launch{
+        submitting=true
+        lifecycleScope.launch{
                 val chosen=selected.toList();waiting=withContext(Dispatchers.IO){chosen.filter{m->!protected(m)&&runCatching{contentResolver.query(Uri.parse(m.uri),arrayOf("_size","date_modified"),null,null,null)?.use{it.moveToFirst()&&it.getLong(0)==m.size&&it.getLong(1)==m.stamp}==true}.getOrDefault(false)}}
                 if(waiting.size!=chosen.size){submitting=false;Toast.makeText(this@SmartActivity,"Media changed. Scan again before cleanup.",Toast.LENGTH_LONG).show();selected.clear();landing();return@launch}
                 try{val pi=MediaStore.createTrashRequest(contentResolver,waiting.map{Uri.parse(it.uri)},true);trash.launch(androidx.activity.result.IntentSenderRequest.Builder(pi.intentSender).build())}
                 catch(_:Exception){submitting=false;Toast.makeText(this@SmartActivity,"Android could not open Trash confirmation.",Toast.LENGTH_LONG).show()}
-            }}.show()
+        }
     }
     @Deprecated("Android back navigation") override fun onBackPressed(){if(category!=null)dashboard() else super.onBackPressed()}
 }
