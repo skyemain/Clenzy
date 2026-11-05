@@ -35,6 +35,17 @@ class SmartActivity:ComponentActivity(){
     private var filter="All"
     private var waiting=emptyList<Medium>()
     private var submitting=false
+    private val notificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){ }
+    private fun backgroundPrompt(){
+        if(Build.VERSION.SDK_INT>=33 && !granted(android.Manifest.permission.POST_NOTIFICATIONS) && !getPreferences(0).getBoolean("askedNotifications",false)){
+            getPreferences(0).edit().putBoolean("askedNotifications",true).apply()
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    private fun homeDuringScan(){
+        if(isTaskRoot)startActivity(Intent(this,HomeActivity::class.java))
+        finish()
+    }
     private val request=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){if(access())startScan() else landing()}
     private val trash=registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()){response->
         if(response.resultCode!=Activity.RESULT_OK){submitting=false;waiting=emptyList();review();return@registerForActivityResult}
@@ -75,7 +86,7 @@ class SmartActivity:ComponentActivity(){
         if(Build.VERSION.SDK_INT>=34 && access())button("Manage media access"){request.launch(permissions())}
     }
     private fun rescan(){if(access())startScan() else request.launch(permissions())}
-    private fun startScan(){results=emptyMap();screen("Scanning media");page.addView(ProgressBar(this));selected.clear();waiting=emptyList();category=null;val task=OneTimeWorkRequestBuilder<SmartWorker>().build();run=task.id.toString();getPreferences(0).edit().putString("run",run).apply();manager.enqueueUniqueWork("smart-media",ExistingWorkPolicy.REPLACE,task);observe(task.id)}
+    private fun startScan(){ScanNotifications.ensureChannel(this).cancel(ScanNotifications.notificationId);backgroundPrompt();results=emptyMap();screen("Scanning media");page.addView(ProgressBar(this));selected.clear();waiting=emptyList();category=null;val task=OneTimeWorkRequestBuilder<SmartWorker>().setBackoffCriteria(BackoffPolicy.LINEAR,10,java.util.concurrent.TimeUnit.SECONDS).build();run=task.id.toString();getPreferences(0).edit().putString("run",run).apply();manager.enqueueUniqueWork("smart-media",ExistingWorkPolicy.REPLACE,task);observe(task.id)}
     private fun observe(id:UUID,pending:List<String> = emptyList()){
         manager.getWorkInfoByIdLiveData(id).observe(this){work->
             if(run!=id.toString())return@observe
@@ -91,6 +102,10 @@ class SmartActivity:ComponentActivity(){
                 null->if(getPreferences(0).getString("run","")==id.toString()){screen("Preparing media scan");button("Restart scan",this::rescan)}else landing()
                 else->{screen("Analyzing media");page.addView(ProgressBar(this));label(work.progress.getString("stage")?:"Preparing scan");val n=work.progress.getInt("total",0)
                     if(n>0)label("$n discovered · ${work.progress.getInt("images",0)} photos · ${work.progress.getInt("videos",0)} videos")
+                    button("Back to Home",this::homeDuringScan)
+                    if(!ScanNotifications.enabled(this))button("Enable completion alerts"){
+                        startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,packageName))
+                    }
                     button("Cancel scan"){manager.cancelWorkById(id)}
                 }
             }

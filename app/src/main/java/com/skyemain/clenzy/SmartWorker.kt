@@ -16,6 +16,7 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
     }
     override suspend fun doWork():Result=withContext(Dispatchers.IO){
         val job=currentCoroutineContext()
+        val started=android.os.SystemClock.elapsedRealtime()
         try{
             progress("Finding photos and videos")
             val all=mutableListOf<Medium>();var accessible=0
@@ -43,6 +44,8 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
                 progress("Checking accessible photos and videos",all.size)
                 for(m in all){
                     job.ensureActive();val cached=cachedItems.remove(m.uri)
+                    // Resume from this run's persisted analyses before the WorkManager time limit.
+                    if(cached==null && android.os.SystemClock.elapsedRealtime()-started>7*60_000L)return@withContext Result.retry()
                     var i=cached?.takeIf{it.complete}?:try{vision.analyze(m){job.ensureActive()}}catch(e:Exception){
                         job.ensureActive();Insight(listOf(Finding("Review manually","Analysis unavailable · keep for manual review",true)),emptyList(),0.0,complete=false)
                     }
@@ -82,6 +85,10 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
             }
             matches.values.forEach{group(it,if(it.first().video)"Similar videos" else "Similar photos")}
             job.ensureActive();db.save(id.toString(),results)}
+            job.ensureActive()
+            if(applicationContext.getSharedPreferences("SmartActivity",0).getString("run",null)==id.toString()){
+                try{ScanNotifications.completed(applicationContext)}catch(_:SecurityException){ /* Notifications can be disabled during a scan. */ }
+            }
             Result.success()
         }catch(e:CancellationException){throw e}catch(e:Exception){Result.failure(workDataOf("error" to "Analysis stopped. Check media access and available storage, then retry."))}
     }
