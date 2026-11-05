@@ -62,7 +62,7 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
                 val ranked=items.sortedWith(compareByDescending<Medium>{results.getValue(it).findings.any{f->f.protected}}.thenByDescending{it.width.toLong()*it.height}.thenByDescending{results.getValue(it).sharp}.thenBy{it.stamp})
                 ranked.forEachIndexed{index,m->
                     val i=results.getValue(m)
-                    if(!i.findings.any{it.protected})results[m]=i.copy(findings=i.findings+Finding(category,if(index==0)"Keeper · "+m.name else "Matches "+ranked.first().name,index==0))
+                    if(!i.findings.any{it.protected})results[m]=i.copy(findings=i.findings+Finding(category,if(index==0)"Keeper · "+m.name else "Matches "+ranked.first().name,index==0,category+"/"+ranked.first().uri))
                 }
             }
             results.keys.filter{results.getValue(it).digest.isNotEmpty()}.groupBy{results.getValue(it).digest}.values.forEach{group(it,if(it.first().video)"Duplicate videos" else "Duplicate photos")}

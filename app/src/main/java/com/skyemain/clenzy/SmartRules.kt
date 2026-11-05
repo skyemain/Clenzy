@@ -4,9 +4,9 @@ import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.abs
 
-internal data class Finding(val category:String, val reason:String, val protected:Boolean=false)
+internal data class Finding(val category:String, val reason:String, val protected:Boolean=false, val group:String="")
 internal object SmartRules {
-    const val version = 1
+    const val version = 2
     val important = Regex("""\b(receipt|invoice|paid|payment confirmation|statement|booking|boarding pass|passport|driv(ing|er.s) licen[cs]e|prescription|diagnosis|ticket|reservation|insurance|tax return|appointment|account number|medical report)\b""")
     val promo = Regex("""\b(sale|discount|coupon|clearance|flash sale|special offer|promo code|shop now|free delivery|order now|offer ends|valid until)\b""")
     val greeting = Regex("""\b(good morning|good night|happy birthday|happy diwali|merry christmas|happy new year|happy sunday|daily blessing)\b""")
@@ -38,6 +38,10 @@ internal object SmartRules {
             val expired=Regex("""(?:offer ends|valid until)\s*[: -]?\s*(\d{4}-\d{2}-\d{2})""").find(t)?.groupValues?.get(1)?.let{runCatching{LocalDate.parse(it).isBefore(today)}.getOrNull()}==true
             out+=Finding(if(video)"Video clutter" else "Promotional images",if(expired)"Offer text includes a past end date" else "Promotional language in shared media")
         }
+        if (shared && Regex("""\b(rsvp|register now|free entry|live concert|admit one)\b""").containsMatchIn(t) && t.length>20)
+            out+=Finding(if(video)"Video clutter" else "Event flyers","Shared graphic with event or registration text")
+        if (shared && !video && labels.any{it.equals("Comics",true)||it.equals("Cartoon",true)} && t.length>12)
+            out+=Finding("Possible memes","Illustration label and a caption in shared media")
         if(shared && greeting.containsMatchIn(t)) out+=Finding(if(video)"Video clutter" else if(source=="WhatsApp")"WhatsApp clutter" else "Shared greetings","Shared media with greeting text")
         if(source=="Screenshot")out+=Finding("Screenshots",if(ageDays>90)"Screenshot saved over 90 days ago" else "Screenshot for manual review")
         if(shared && !video)out+=Finding("Downloaded images","Source suggests shared or downloaded media")

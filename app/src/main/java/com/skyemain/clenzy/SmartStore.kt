@@ -12,13 +12,13 @@ internal data class Medium(val uri:String,val name:String,val stamp:Long,val siz
 }
 internal data class Insight(val findings:List<Finding>,val frames:List<Long>,val sharp:Double,val digest:String="",val complete:Boolean=true){
     fun encode()=JSONObject().apply{
-        put("labels",JSONArray().also{a->findings.forEach{a.put(JSONArray(listOf(it.category,it.reason,it.protected)))}})
+        put("labels",JSONArray().also{a->findings.forEach{a.put(JSONArray(listOf(it.category,it.reason,it.protected,it.group)))}})
         put("frames",JSONArray(frames.map{it.toString()}));put("sharp",sharp);put("hash",digest);put("ok",complete)
     }.toString()
     companion object {
         fun decode(s:String):Insight{
             val j=JSONObject(s);val a=j.getJSONArray("labels");val h=j.getJSONArray("frames")
-            return Insight((0 until a.length()).map{val f=a.getJSONArray(it);Finding(f.getString(0),f.getString(1),f.getBoolean(2))},
+            return Insight((0 until a.length()).map{val f=a.getJSONArray(it);Finding(f.getString(0),f.getString(1),f.getBoolean(2),f.optString(3))},
                 (0 until h.length()).map{h.getString(it).toLong()},j.getDouble("sharp"),j.getString("hash"),j.getBoolean("ok"))
         }
     }
@@ -32,6 +32,9 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
     override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int)=Unit
     fun cached(m:Medium):Insight?=readableDatabase.rawQuery("SELECT analysis FROM cache WHERE uri=? AND freshness=?",arrayOf(m.uri,m.freshness)).use{if(it.moveToFirst()) Insight.decode(it.getString(0)) else null}
     fun cache(m:Medium,i:Insight){writableDatabase.execSQL("INSERT OR REPLACE INTO cache VALUES(?,?,?)",arrayOf(m.uri,m.freshness,i.encode()))}
+    fun retain(group:String,m:Medium){
+        writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(group,"keeper",m.uri))
+    }
     fun choice(m:Medium,value:String){writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(m.uri,m.freshness,value))}
     fun save(run:String,all:Map<Medium,Insight>){
         val db=writableDatabase;db.beginTransaction()
@@ -48,6 +51,15 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
         }}
         readableDatabase.rawQuery("SELECT uri,freshness,choice FROM choices",null).use{c->
             val byUri=out.keys.associateBy{it.uri};while(c.moveToNext()){
+                if(c.getString(1)=="keeper"){
+                    val group=c.getString(0);val chosen=byUri[c.getString(2)]?:continue
+                    if(out[chosen]?.findings?.any{it.group==group}!=true)continue
+                    for((file,insight) in out.entries){
+                        if(insight.findings.none{it.group==group})continue
+                        out[file]=insight.copy(findings=insight.findings.map{if(it.group!=group)it else it.copy(protected=file==chosen,reason=if(file==chosen)"Keeper · chosen by you" else "Matches "+chosen.name)})
+                    }
+                    continue
+                }
                 val m=byUri[c.getString(0)]?:continue;if(m.freshness!=c.getString(1))continue
                 val i=out.getValue(m);out[m]=i.copy(findings=listOf(Finding(if(c.getString(2)=="Review later")"Review later" else "Protected",c.getString(2),true)))
             }

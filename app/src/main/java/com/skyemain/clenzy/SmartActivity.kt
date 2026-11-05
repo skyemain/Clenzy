@@ -15,6 +15,8 @@ import android.view.*
 import android.widget.*
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.work.*
 import com.google.android.material.button.MaterialButton
@@ -52,7 +54,13 @@ class SmartActivity:ComponentActivity(){
     private fun bytes(n:Long)=Formatter.formatShortFileSize(this,n)
     private fun screen(title:String){
         page=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(24),dp(20),dp(20))}
-        setContentView(page);label(title,29).setTypeface(null,Typeface.BOLD)
+        setContentView(page)
+        ViewCompat.setOnApplyWindowInsetsListener(page){view,insets->
+            val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(dp(20)+bars.left,dp(16)+bars.top,dp(20)+bars.right,dp(12)+bars.bottom)
+            insets
+        }
+        label(title,29).setTypeface(null,Typeface.BOLD)
     }
     private fun label(value:String,size:Int=15)=TextView(this).apply{text=value;textSize=size.toFloat();setPadding(0,dp(5),0,dp(7));page.addView(this)}
     private fun button(name:String,action:()->Unit)=MaterialButton(this).apply{text=name;isAllCaps=false;cornerRadius=dp(18);setOnClickListener{action()};page.addView(this)}
@@ -118,9 +126,10 @@ class SmartActivity:ComponentActivity(){
                 val t=TextView(this@SmartActivity);t.text="${m.name}\n${bytes(m.size)} · ${m.source}\n${results.getValue(m).findings.first{it.category==cat}.reason}";t.maxLines=5;cell.addView(t)
                 val check=CheckBox(this@SmartActivity);check.text=if(protected(m))"Kept" else "Select";check.isEnabled=!protected(m);check.isChecked=m in selected;cell.addView(check)
                 check.setOnCheckedChangeListener{_,yes->if(yes)selected.add(m) else selected.remove(m);action.text="Review selection (${selected.size})"}
-                cell.setOnClickListener{val options=arrayOf("Preview","Always keep","Not clutter","Hide from suggestions","Review later")
+                cell.setOnClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
+                    val options=(listOf("Preview","Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
                     AlertDialog.Builder(this@SmartActivity).setTitle(m.name).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
-                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.choice(m,options[n]);it.results(run)}};selected.remove(m);review()
+                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
                     }}.show()};return cell}}
         grid.adapter=adapter
         chip("Select all"){val eligible=rows.filterNot{protected(it)};if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();action.text="Review selection (${selected.size})"}
