@@ -75,18 +75,20 @@ class SmartActivity:ComponentActivity(){
         if(Build.VERSION.SDK_INT>=34 && access())button("Manage media access"){request.launch(permissions())}
     }
     private fun rescan(){if(access())startScan() else request.launch(permissions())}
-    private fun startScan(){selected.clear();waiting=emptyList();category=null;val task=OneTimeWorkRequestBuilder<SmartWorker>().build();run=task.id.toString();getPreferences(0).edit().putString("run",run).apply();manager.enqueueUniqueWork("smart-media",ExistingWorkPolicy.REPLACE,task);observe(task.id)}
+    private fun startScan(){results=emptyMap();screen("Scanning media");page.addView(ProgressBar(this));selected.clear();waiting=emptyList();category=null;val task=OneTimeWorkRequestBuilder<SmartWorker>().build();run=task.id.toString();getPreferences(0).edit().putString("run",run).apply();manager.enqueueUniqueWork("smart-media",ExistingWorkPolicy.REPLACE,task);observe(task.id)}
     private fun observe(id:UUID,pending:List<String> = emptyList()){
         manager.getWorkInfoByIdLiveData(id).observe(this){work->
             if(run!=id.toString())return@observe
             when(work?.state){
                 WorkInfo.State.SUCCEEDED->lifecycleScope.launch{
                     if(!access()){landing();return@launch}
-                    results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.results(run)}}
+                    val fresh=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.results(id.toString())}}
+                    if(run!=id.toString())return@launch
+                    results=fresh
                     waiting=results.keys.filter{it.uri in pending};dashboard()
                 }
                 WorkInfo.State.FAILED,WorkInfo.State.CANCELLED->{landing();label(work.outputData.getString("error")?:"Scan stopped. Completed analysis can be reused.")}
-                null->landing()
+                null->if(getPreferences(0).getString("run","")==id.toString()){screen("Preparing media scan");button("Restart scan",this::rescan)}else landing()
                 else->{screen("Analyzing media");page.addView(ProgressBar(this));label(work.progress.getString("stage")?:"Preparing scan");val n=work.progress.getInt("total",0)
                     if(n>0)label("$n discovered · ${work.progress.getInt("images",0)} photos · ${work.progress.getInt("videos",0)} videos")
                     button("Cancel scan"){manager.cancelWorkById(id)}
@@ -140,6 +142,9 @@ class SmartActivity:ComponentActivity(){
         }
         val kept=results.count{(m,i)->locks.contains(m.uri)||i.findings.any{it.category=="Protected"}}
         if(kept>0)cards.addView(MaterialButton(this).apply{text="Protected   ·   $kept files";isAllCaps=false;setOnClickListener{category="Protected";filter="All";review()}})
+        if(Build.VERSION.SDK_INT>=33 && !(granted(READ_MEDIA_IMAGES)&&granted(READ_MEDIA_VIDEO))){
+            button("Limited media access · Manage"){startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+packageName)))}
+        }
         button("Scan again",this::rescan)
     }
     private fun thumbLoader(image:ImageView,m:Medium){

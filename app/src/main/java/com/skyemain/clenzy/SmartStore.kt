@@ -24,18 +24,21 @@ internal data class Insight(val findings:List<Finding>,val frames:List<Long>,val
         }
     }
 }
-internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media.db",null,1){
+internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media.db",null,2){
     override fun onCreate(db:SQLiteDatabase){
-        db.execSQL("CREATE TABLE cache(uri TEXT PRIMARY KEY, freshness TEXT, analysis TEXT)")
+        db.execSQL("CREATE TABLE cache(uri TEXT PRIMARY KEY, freshness TEXT, analysis TEXT, scan_id TEXT)")
         db.execSQL("CREATE TABLE results(run TEXT, uri TEXT, metadata TEXT, analysis TEXT, PRIMARY KEY(run,uri))")
         db.execSQL("CREATE TABLE choices(uri TEXT, freshness TEXT, choice TEXT, PRIMARY KEY(uri,freshness))")
     }
-    override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int)=Unit
+    override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int){
+        if(old<2)db.execSQL("ALTER TABLE cache ADD COLUMN scan_id TEXT")
+    }
     fun cached(m:Medium):Insight?=readableDatabase.rawQuery("SELECT analysis FROM cache WHERE uri=? AND freshness=?",arrayOf(m.uri,m.freshness+m.analysisRevision)).use{if(it.moveToFirst()) Insight.decode(it.getString(0)) else null}
-    fun matchingCache(media:List<Medium>):MutableMap<String,Insight>{
+    fun matchingCache(media:List<Medium>,scanId:String?=null):MutableMap<String,Insight>{
         val wanted=media.associateBy{it.uri}
         val found=HashMap<String,Insight>()
-        readableDatabase.rawQuery("SELECT uri,freshness,analysis FROM cache",null).use{cursor->
+        val query="SELECT uri,freshness,analysis FROM cache"+if(scanId==null) "" else " WHERE scan_id=?"
+        readableDatabase.rawQuery(query,scanId?.let{arrayOf(it)}).use{cursor->
             while(cursor.moveToNext()){
                 val uri=cursor.getString(0)
                 if(wanted[uri]?.let{it.freshness+it.analysisRevision}==cursor.getString(1)) found[uri]=Insight.decode(cursor.getString(2))
@@ -43,7 +46,7 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
         }
         return found
     }
-    fun cache(m:Medium,i:Insight){writableDatabase.execSQL("INSERT OR REPLACE INTO cache VALUES(?,?,?)",arrayOf(m.uri,m.freshness+m.analysisRevision,i.encode()))}
+    fun cache(m:Medium,i:Insight,scanId:String?=null){writableDatabase.execSQL("INSERT OR REPLACE INTO cache(uri,freshness,analysis,scan_id) VALUES(?,?,?,?)",arrayOf(m.uri,m.freshness+m.analysisRevision,i.encode(),scanId))}
     fun retain(group:String,m:Medium){
         writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(group,"keeper",m.uri))
     }

@@ -52,7 +52,7 @@ class SmartCleanTest {
             val m=Medium(uri.toString(),"receipt.png",1,300,800,600,0,"WhatsApp",false,0,0)
             val finding=SmartVision(context).use{it.analyze(m){}}
             assertTrue(finding.findings.any{it.protected});assertTrue(finding.frames.isEmpty())
-            SmartStore(context).use{db->db.cache(m,finding);assertEquals(finding,db.cached(m));assertNull(db.cached(m.copy(stamp=2)));assertEquals(finding,db.matchingCache(listOf(m))[m.uri]);assertTrue(db.matchingCache(listOf(m.copy(stamp=2))).isEmpty())}
+            SmartStore(context).use{db->db.cache(m,finding,"first-run");assertTrue(db.matchingCache(listOf(m),"new-run").isEmpty());assertEquals(finding,db.matchingCache(listOf(m),"first-run")[m.uri]);assertEquals(finding,db.cached(m));assertNull(db.cached(m.copy(stamp=2)));assertEquals(finding,db.matchingCache(listOf(m))[m.uri]);assertTrue(db.matchingCache(listOf(m.copy(stamp=2))).isEmpty())}
         }finally{resolver.delete(uri,null,null)}
     }
 }

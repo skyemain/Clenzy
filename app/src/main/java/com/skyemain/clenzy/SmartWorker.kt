@@ -39,7 +39,8 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
             if(accessible==0)return@withContext Result.failure(workDataOf("error" to "Media access is unavailable."))
             val sizes=all.groupingBy{it.size}.eachCount();val results=linkedMapOf<Medium,Insight>();var photos=0;var videos=0;var last=0L
             SmartStore(applicationContext).use{db->SmartVision(applicationContext).use{vision->
-                val cachedItems=db.matchingCache(all)
+                val cachedItems=db.matchingCache(all,id.toString())
+                progress("Checking accessible photos and videos",all.size)
                 for(m in all){
                     job.ensureActive();val cached=cachedItems.remove(m.uri)
                     var i=cached?.takeIf{it.complete}?:try{vision.analyze(m){job.ensureActive()}}catch(e:Exception){
@@ -52,7 +53,7 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
                         }.orEmpty()}catch(_:java.io.IOException){""}
                         i=i.copy(digest=digest)
                     }
-                    results[m]=i;if(i!=cached)db.cache(m,i)
+                    results[m]=i;if(i!=cached)db.cache(m,i,id.toString())
                     if(m.video)videos++ else photos++
                     if(android.os.SystemClock.elapsedRealtime()-last>900){progress("Analyzing media on this device",all.size,photos,videos);last=android.os.SystemClock.elapsedRealtime()}
                 }
