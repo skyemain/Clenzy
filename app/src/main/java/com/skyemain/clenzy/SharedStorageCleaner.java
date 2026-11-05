@@ -9,6 +9,12 @@ import java.util.*;
 /** Local shared storage only. Never follows links or deletes directories. */
 public final class SharedStorageCleaner {
     private final File root;
+    private android.content.ContentResolver resolver;
+    public String discovery = "";
+    public SharedStorageCleaner(File root, android.content.ContentResolver resolver) {
+        this(root);
+        this.resolver = resolver;
+    }
     private final Map<String,ReviewFile> scanned=new HashMap<>();
     public java.util.function.IntConsumer progress=count->{};
     public record Scan(List<ReviewFile> files,int hashed,int notHashed,boolean truncated,int unreadable) {}
@@ -38,13 +44,44 @@ public final class SharedStorageCleaner {
                 }
             }catch(IOException|SecurityException failure){if(directory.equals(root))throw new IOException("Shared storage cannot be listed",failure);unreadable++;}
         }
+        int walked = result.size();
+        if (resolver != null && android.os.Build.VERSION.SDK_INT >= 30 && !downloads) {
+            Map<String,ReviewFile> merged = new LinkedHashMap<>();
+            for (ReviewFile file : result) merged.put(file.uri(), file);
+            int indexed = 0;
+            String[] columns = {"_data", "mime_type", "is_download", "bucket_display_name"};
+            var collection = android.provider.MediaStore.Files.getContentUri(android.provider.MediaStore.VOLUME_EXTERNAL_PRIMARY);
+            try (var rows = resolver.query(collection, columns, "is_pending=0 AND is_trashed=0", null, null, cancel)) {
+                if (rows == null) throw new IOException("Index unavailable");
+                while (rows.moveToNext()) {
+                    cancel.throwIfCanceled();
+                    String path = rows.getString(0);
+                    if (path == null) continue;
+                    File file = new File(path);
+                    if (!allowed(file) || !Files.isRegularFile(file.toPath(), LinkOption.NOFOLLOW_LINKS)) continue;
+                    String key = file.toURI().toString();
+                    String mime = rows.getString(1);
+                    String album = rows.getString(3);
+                    merged.put(key, new ReviewFile(key, file.getName(), file.length(), file.lastModified(), null,
+                            mime != null && mime.startsWith("video/"), rows.getInt(2) != 0,
+                            album != null && CleanupGroups.isScreenshot("", album + "/")));
+                    indexed++;
+                }
+                discovery = "Folder scan: " + walked + " files. Android index: " + indexed + " local files.";
+            } catch (IOException | SecurityException | IllegalArgumentException unavailable) {
+                discovery = "Folder scan: " + walked + " files. Android index unavailable.";
+            }
+            result = new ArrayList<>(merged.values());
+        } else {
+            discovery = "Folder scan: " + walked + " files.";
+        }
         Map<Long,Integer> sizes=new HashMap<>();for(ReviewFile f:result)sizes.merge(f.bytes(),1,Integer::sum);
         int hashed=0;long budget=16L*1024*1024*1024;
         for(int n=0;n<result.size();n++){
             cancel.throwIfCanceled();ReviewFile f=result.get(n);
             if(duplicates&&f.bytes()>0&&sizes.get(f.bytes())>1&&f.bytes()<=budget){
                 budget-=f.bytes();try{File local=new File(java.net.URI.create(f.uri()));String hash=digest(local,cancel);
-                    if(f.matches(local.length(),local.lastModified())){result.set(n,new ReviewFile(f.uri(),f.name(),f.bytes(),f.modified(),hash));hashed++;}
+                    if(f.matches(local.length(),local.lastModified())){result.set(n,f.withDigest(hash));hashed++;}
                 }catch(IOException|SecurityException ignored){}
             }
         }

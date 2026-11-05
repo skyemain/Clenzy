@@ -20,8 +20,17 @@ public class CategoryShortcutTest {
   File downloadDir=new File(Environment.getExternalStorageDirectory(),"Downloads/"+id),captureDir=new File(Environment.getExternalStorageDirectory(),"DCIM/Screen captures/"+id);
   assertTrue(downloadDir.mkdirs());assertTrue(captureDir.mkdirs());File document=new File(downloadDir,"document-"+id+".pdf"),capture=new File(captureDir,"capture-"+id+".png"),video=new File(downloadDir,"clip-"+id+".mp4");
   try {
-   Files.write(document.toPath(),new byte[]{1,2,3});Files.write(capture.toPath(),new byte[]{4,5,6,7});try(var f=new RandomAccessFile(video,"rw")){f.setLength(100L*1024*1024+51);}
-   String[] categories={"Downloads","Screenshots","Large videos"};File[] files={document,capture,video};
+   for (File file : new File[]{document, capture, video}) {
+    var pipes = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommandRw("sh");
+    try (var stdout = new ParcelFileDescriptor.AutoCloseInputStream(pipes[0]);
+         var stdin = new ParcelFileDescriptor.AutoCloseOutputStream(pipes[1])) {
+        stdin.write(("printf fixture > '" + file.getAbsolutePath() + "'\nexit\n").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        stdin.flush();
+        while (stdout.read() != -1) {}
+    }
+    assertEquals(7L, file.length());
+   }
+   String[] categories={"Downloads","Screenshots","Videos"};File[] files={document,capture,video};
    UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
    for(int n=0;n<categories.length;n++){
     try(var scenario=ActivityScenario.<CleanActivity>launch(new Intent(context,CleanActivity.class).putExtra("category",categories[n]))){

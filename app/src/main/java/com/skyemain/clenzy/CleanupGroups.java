@@ -13,13 +13,14 @@ public final class CleanupGroups {
         for(var f:duplicates){if(!extras.contains(f.uri()))keepers.add(f.uri());}
         result.add(new Group("Duplicate copies",duplicates.size()+" files",duplicates,keepers));
         Map<String,List<ReviewFile>> categories=new LinkedHashMap<>();
-        for(String key:List.of("Large videos","Downloads","Screenshots","Large files"))categories.put(key,new ArrayList<>());
+        for(String key:List.of("Videos","Downloads","Screenshots","Large files"))categories.put(key,new ArrayList<>());
         for(var f:files){
             String path=java.net.URI.create(f.uri()).getPath().toLowerCase(Locale.ROOT),name=f.name().toLowerCase(Locale.ROOT);boolean large=f.bytes()>=100L*1024*1024;
-            if(large&&name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$"))categories.get("Large videos").add(f);
-            if(path.contains("/download/")||path.contains("/downloads/"))categories.get("Downloads").add(f);
-            if(isScreenshot(name,path))categories.get("Screenshots").add(f);
-            if(large&&!name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$"))categories.get("Large files").add(f);
+            boolean video = f.video() || name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp|3g2|m4v|mpeg|mpg|ts|mts|m2ts|wmv|flv|ogv)$");
+            if (video) categories.get("Videos").add(f);
+            if (f.download() || path.contains("/download/") || path.contains("/downloads/")) categories.get("Downloads").add(f);
+            if (f.screenshot() || isScreenshot(name,path)) categories.get("Screenshots").add(f);
+            if (large && !video) categories.get("Large files").add(f);
         }
         for(var entry:categories.entrySet())if(!entry.getKey().equals("Large files")||!entry.getValue().isEmpty()){
             entry.getValue().sort(Comparator.comparingLong(ReviewFile::bytes).reversed());

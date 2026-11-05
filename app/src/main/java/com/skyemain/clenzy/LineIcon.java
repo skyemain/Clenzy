@@ -12,7 +12,7 @@ public final class LineIcon extends Drawable {
  case "Apps":for(int x:new int[]{3,14})for(int y:new int[]{3,14})c.drawRoundRect(x,y,x+7,y+7,2,2,paint);break;
  case "Duplicate copies":c.drawRoundRect(8,8,21,21,3,3,paint);line(c,8,16,3,16,3,3,16,3,16,8);break;
  case "Downloads":line(c,12,3,12,16);line(c,7,11,12,16,17,11);line(c,3,17,3,21,21,21,21,17);break;
- case "Large videos":c.drawRoundRect(3,4,21,20,4,4,paint);line(c,10,8,16,12,10,16,10,8);break;
+ case "Videos":c.drawRoundRect(3,4,21,20,4,4,paint);line(c,10,8,16,12,10,16,10,8);break;
  case "Screenshots":c.drawRoundRect(3,3,21,21,3,3,paint);c.drawCircle(8,8,1,paint);line(c,3,17,9,11,13,15,17,12,21,16);break;
  default:line(c,5,3,15,3,20,8,20,21,5,21,5,3);line(c,14,3,14,9,20,9);}
  c.restore();}

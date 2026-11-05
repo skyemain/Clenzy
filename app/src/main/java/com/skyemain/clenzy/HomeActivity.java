@@ -51,7 +51,7 @@ public final class HomeActivity extends AppCompatActivity {
         LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(180),dp(180));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(20),0,dp(12));page.addView(ring,ringParams);
         TextView capacity=text(size(used)+" used  ·  "+size(total)+" total",13,muted);capacity.setGravity(Gravity.CENTER);page.addView(capacity,spaced());
         MaterialButton start=button("Scan my phone",this::startCleaning,true);start.setMinHeight(dp(58));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
-        String[][] shortcuts={{"Large videos","Screenshots"},{"Duplicate copies","Downloads"}};
+        String[][] shortcuts={{"Videos","Screenshots"},{"Duplicate copies","Downloads"}};
         for(String[] pair:shortcuts){LinearLayout row=new LinearLayout(this);for(String category:pair){LinearLayout tile=card();tile.setPadding(dp(14),dp(12),dp(14),dp(12));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(category,blue));tile.addView(icon,new LinearLayout.LayoutParams(dp(26),dp(26)));TextView title=text(category,13,ink);tile.addView(title);tile.setContentDescription("Review "+category);tile.setFocusable(true);tile.setOnClickListener(v->startActivity(new Intent(this,CleanActivity.class).putExtra("category",category)));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(4),dp(4),dp(4),dp(4));row.addView(tile,lp);}page.addView(row);}
         LinearLayout navigation=new LinearLayout(this);navigation.addView(navItem("Home",this::draw),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(navItem("Apps",this::apps),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
         for(int n=0;n<navigation.getChildCount();n++)navigation.getChildAt(n).setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));
@@ -72,7 +72,7 @@ public final class HomeActivity extends AppCompatActivity {
             if(w==3){try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}}
             if(w==5)open("photos");
             if(w==6)open("cache");
-            if(w==4)message("Clenzy 1.7.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
+            if(w==4)message("Clenzy 1.8.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
         }).show();
     }
     private void history(){

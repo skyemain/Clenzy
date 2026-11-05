@@ -29,7 +29,7 @@ public final class CleanupViewModel extends AndroidViewModel {
     private final SharedStorageCleaner shared;
     private CancellationSignal cancellation;
     public CleanupViewModel(Application app) {
-        super(app); shared=new SharedStorageCleaner(Environment.getExternalStorageDirectory());
+        super(app); shared=new SharedStorageCleaner(Environment.getExternalStorageDirectory(), app.getContentResolver());
         shared.progress=count->main.post(()->{status="Scanning shared storage · "+count+" entries checked";changed();}); cache=new OwnCacheCleaner(app.getCacheDir()); documents = new DocumentCleaner(app.getContentResolver()); photos = new MediaCleaner(app.getContentResolver());
         documents.progress=count->main.post(()->{status="Examining authorized files · "+count+" entries inspected";changed();});
         photos.progress=count->main.post(()->{status="Examining authorized media · "+count+" items inspected";changed();});
@@ -55,7 +55,7 @@ public final class CleanupViewModel extends AndroidViewModel {
                 } else {
                     var scan = documents.scan(tree, cancellation, deep); result = scan.files(); hashed = scan.hashed(); notHashed = scan.notHashed(); truncated = scan.truncated(); skipped = scan.skipped();
                 }
-                String message = result.size()+" files reviewed · "+hashed+" duplicate checks · "+notHashed+" not hashed (unique size, limit or unavailable) · "+skipped+" unreadable checks."+(truncated ? " Scan limit reached." : "");
+                String message = (sharedStorage ? shared.discovery+" " : "")+result.size()+" files reviewed · "+hashed+" duplicate checks · "+notHashed+" not hashed (unique size, limit or unavailable) · "+skipped+" unreadable checks."+(truncated ? " Scan limit reached." : "");
                 final int inaccessible=skipped;main.post(() -> { scanTruncated=truncated;unreadableFolders=inaccessible;scanFinished=true;files = result; status = message; if(ownCache) for(ReviewFile f:files) selected.add(f.uri()); busy = false; changed(); });
             } catch (Exception e) { main.post(() -> { scanFinished=true;scanFailed=true;status = cancellation.isCanceled() ? "Scan cancelled. Nothing deleted." : sharedStorage?"Shared storage could not be read. Enable All files access for Clenzy, then scan again.":"Access unavailable. Choose the folder or grant Photos access again."; busy = false; changed(); }); }
         });
