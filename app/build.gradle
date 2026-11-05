@@ -1,4 +1,4 @@
-plugins { id 'com.android.application' }
+plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 android {
     namespace 'com.skyemain.clenzy'
     compileSdk 35
@@ -7,9 +7,10 @@ android {
         minSdk 26
         targetSdk 35
         versionCode = ((System.getenv("GITHUB_RUN_NUMBER") ?: "2").toInteger() + 100)
-        versionName '1.8.1'
+        versionName '1.9.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
+    kotlinOptions { jvmTarget = '17' }
     compileOptions { coreLibraryDesugaringEnabled true; sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     signingConfigs {
         release {
@@ -25,6 +26,11 @@ android {
 
 }
 dependencies {
+    implementation 'androidx.work:work-runtime-ktx:2.9.1'
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'com.google.mlkit:image-labeling:17.0.9'
+    implementation 'com.google.mlkit:barcode-scanning:17.3.0'
+    implementation 'com.google.mlkit:face-detection:16.1.7'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.activity:activity:1.9.3'
     implementation 'androidx.lifecycle:lifecycle-viewmodel:2.8.7'
