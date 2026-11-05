@@ -21,11 +21,7 @@ public class CategoryShortcutTest {
   assertTrue(downloadDir.mkdirs());assertTrue(captureDir.mkdirs());File document=new File(downloadDir,"document-"+id+".pdf"),capture=new File(captureDir,"capture-"+id+".png"),video=new File(downloadDir,"clip-"+id+".mp4");
   try {
    for (File file : new File[]{document, capture, video}) {
-    String command = "dd if=/dev/zero of=" + "'" + file.getAbsolutePath() + "'" + " bs=1 count=7";
-    var output = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
-    try (var stdout = new ParcelFileDescriptor.AutoCloseInputStream(output)) {
-        while (stdout.read() != -1) {}
-    }
+    Files.write(file.toPath(), new byte[7]);
     assertEquals(7L, file.length());
    }
    String[] categories={"Downloads","Screenshots","Videos"};File[] files={document,capture,video};
