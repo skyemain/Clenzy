@@ -48,9 +48,11 @@ public final class HomeActivity extends AppCompatActivity {
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes(),used=total-free;
         FrameLayout ring=new FrameLayout(this);ring.addView(new StorageRing(this,total>0?(float)used/total:0,dark?Color.rgb(44,57,75):Color.rgb(231,235,242),dark?Color.rgb(140,169,255):blue),new FrameLayout.LayoutParams(-1,-1));
         LinearLayout numbers=column();numbers.setGravity(Gravity.CENTER);TextView amount=text(size(free),38,ink);amount.setTypeface(null,Typeface.BOLD);amount.setGravity(Gravity.CENTER);numbers.addView(amount);TextView available=text("available space",13,muted);available.setGravity(Gravity.CENTER);numbers.addView(available);ring.addView(numbers,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(218),dp(218));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(56),0,dp(24));page.addView(ring,ringParams);
+        LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(180),dp(180));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(20),0,dp(12));page.addView(ring,ringParams);
         TextView capacity=text(size(used)+" used  ·  "+size(total)+" total",13,muted);capacity.setGravity(Gravity.CENTER);page.addView(capacity,spaced());
         MaterialButton start=button("Scan my phone",this::startCleaning,true);start.setMinHeight(dp(58));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
+        String[][] shortcuts={{"Large videos","Screenshots"},{"Duplicate copies","Downloads"}};
+        for(String[] pair:shortcuts){LinearLayout row=new LinearLayout(this);for(String category:pair){LinearLayout tile=card();tile.setPadding(dp(14),dp(12),dp(14),dp(12));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(category,blue));tile.addView(icon,new LinearLayout.LayoutParams(dp(26),dp(26)));TextView title=text(category,13,ink);tile.addView(title);tile.setContentDescription("Review "+category);tile.setFocusable(true);tile.setOnClickListener(v->startActivity(new Intent(this,CleanActivity.class).putExtra("category",category)));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(4),dp(4),dp(4),dp(4));row.addView(tile,lp);}page.addView(row);}
         LinearLayout navigation=new LinearLayout(this);navigation.addView(navItem("Home",this::draw),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(navItem("Apps",this::apps),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
         for(int n=0;n<navigation.getChildCount();n++)navigation.getChildAt(n).setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));
         page.removeView(navigation);
@@ -70,7 +72,7 @@ public final class HomeActivity extends AppCompatActivity {
             if(w==3){try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}}
             if(w==5)open("photos");
             if(w==6)open("cache");
-            if(w==4)message("Clenzy 1.5.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
+            if(w==4)message("Clenzy 1.6.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
         }).show();
     }
     private void history(){
@@ -116,7 +118,7 @@ public final class HomeActivity extends AppCompatActivity {
     }
     private void showApps(List<AppEntry> entries){
         page.removeAllViews();page.addView(button("‹  Home",this::draw,false));
-        page.addView(text("Keep your favourites.\nFind your space.",28,ink));page.addView(text("Largest apps first",13,muted));
+        page.addView(text("Apps",28,ink));page.addView(text("Largest apps first",13,muted));
         if(entries.isEmpty())page.addView(text("No visible apps were reported by Android.",14,muted));
         for(AppEntry app:entries){
             LinearLayout row=card();row.addView(text(app.name()+"  ·  "+(app.bytes()<0?"Size unavailable":size(app.bytes())),16,ink));
