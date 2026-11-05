@@ -1,1 +1,1 @@
-3af5974b4ca6f89bd2908c9f2083a3861e45c7ffe0abffaf689c30ae17191c89  Clenzy-1.9.4-android-candidate.apk
+5fd0981533ebc7346a2babf426c1a448ea78e7444c86610844bd8fcf80393658  Clenzy-1.9.5-android-candidate.apk
