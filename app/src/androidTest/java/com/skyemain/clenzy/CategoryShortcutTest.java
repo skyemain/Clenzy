@@ -17,11 +17,11 @@ public class CategoryShortcutTest {
   Context context=ApplicationProvider.getApplicationContext();
   try(var fd=InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand("appops set --uid "+context.getPackageName()+" MANAGE_EXTERNAL_STORAGE allow");var in=new ParcelFileDescriptor.AutoCloseInputStream(fd)){while(in.read()!=-1){}}
   String id="Clenzy-shortcut-"+UUID.randomUUID();
-  File downloadDir=new File(Environment.getExternalStorageDirectory(),"Downloads/"+id),captureDir=new File(Environment.getExternalStorageDirectory(),"DCIM/Screen_captures/"+id);
+  File downloadDir=new File(Environment.getExternalStorageDirectory(),"WhatsApp/Media/WhatsApp Documents/"+id),captureDir=new File(Environment.getExternalStorageDirectory(),"DCIM/Screen_captures/"+id);
   assertTrue(downloadDir.mkdirs());assertTrue(captureDir.mkdirs());File document=new File(downloadDir,"document-"+id+".pdf"),capture=new File(captureDir,"capture-"+id+".png"),video=new File(downloadDir,"clip-"+id+".mp4");
   try {
    for (File file : new File[]{document, capture, video}) {
-    String command = "dd if=/dev/zero of=" + file.getAbsolutePath() + " bs=1 count=7";
+    String command = "dd if=/dev/zero of=" + "'" + file.getAbsolutePath() + "'" + " bs=1 count=7";
     var output = InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(command);
     try (var stdout = new ParcelFileDescriptor.AutoCloseInputStream(output)) {
         while (stdout.read() != -1) {}
@@ -32,12 +32,11 @@ public class CategoryShortcutTest {
    UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
    for(int n=0;n<categories.length;n++){
     try(var scenario=ActivityScenario.<CleanActivity>launch(new Intent(context,CleanActivity.class).putExtra("category",categories[n]))){
-     assertTrue(categories[n]+" opens sheet",device.wait(Until.hasObject(By.desc("Search files")),30000));
+     assertTrue(categories[n]+" opens sheet",device.wait(Until.hasObject(By.text("Sort")),30000));
      scenario.onActivity(activity -> {
       var model = new androidx.lifecycle.ViewModelProvider(activity).get(CleanupViewModel.class);
       assertTrue(model.status, model.status.contains("Android index:"));
      });
-     device.findObject(By.desc("Search files")).setText(id);
      assertTrue(categories[n]+" discovers file",device.wait(Until.hasObject(By.text(files[n].getName())),5000));
     }
    }

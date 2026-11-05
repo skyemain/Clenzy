@@ -18,7 +18,7 @@ public final class CleanupGroups {
             String path=java.net.URI.create(f.uri()).getPath().toLowerCase(Locale.ROOT),name=f.name().toLowerCase(Locale.ROOT);boolean large=f.bytes()>=100L*1024*1024;
             boolean video = f.video() || name.matches(".*\\.(mp4|mov|mkv|webm|avi|3gp|3g2|m4v|mpeg|mpg|ts|mts|m2ts|wmv|flv|ogv)$");
             if (video) categories.get("Videos").add(f);
-            if (f.download() || path.contains("/download/") || path.contains("/downloads/")) categories.get("Downloads").add(f);
+            if (f.download() || path.contains("/download/") || path.contains("/downloads/") || receivedWhatsAppFile(path)) categories.get("Downloads").add(f);
             if (f.screenshot() || isScreenshot(name,path)) categories.get("Screenshots").add(f);
             if (large && !video) categories.get("Large files").add(f);
         }
@@ -27,6 +27,24 @@ public final class CleanupGroups {
             result.add(new Group(entry.getKey(),entry.getValue().size()+" files",entry.getValue(),keepers));
         }
         return result;
+    }
+    private static boolean receivedWhatsAppFile(String path) {
+        String[] segments = path.split("/");
+        for (int i = 1; i + 3 < segments.length; i++) {
+            String app = segments[i];
+            if (!app.equals("whatsapp") && !app.equals("whatsapp business")) continue;
+            if (!segments[i + 1].equals("media")) continue;
+            String folder = segments[i + 2];
+            String prefix = app + " ";
+            if (!folder.startsWith(prefix)) continue;
+            if (!Set.of("documents", "images", "video", "audio", "voice notes", "animated gifs")
+                    .contains(folder.substring(prefix.length()))) continue;
+            for (int j = i + 3; j < segments.length; j++) {
+                if (segments[j].startsWith(".") || segments[j].equals("sent") || segments[j].equals("private")) return false;
+            }
+            return true;
+        }
+        return false;
     }
     public static boolean isScreenshot(String name,String path){
         String normalized=(name+"/"+path).toLowerCase(Locale.ROOT).replaceAll("[ _-]","");
