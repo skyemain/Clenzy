@@ -33,7 +33,7 @@ internal class SmartVision(val context:Context):java.io.Closeable{
     }
     fun analyze(m:Medium,check:()->Unit):Insight{
         check()
-        if (m.source == "Camera" || m.source == "WhatsApp sent") {
+        if ((m.source == "Camera" && m.video) || m.source == "WhatsApp sent") {
             return Insight(listOf(Finding("Protected","Possible personal original",true)), emptyList(),0.0)
         }
         val hashes=mutableListOf<Long>();val words=StringBuilder();val labels=mutableSetOf<String>()

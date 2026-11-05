@@ -43,7 +43,7 @@ class SmartActivity:ComponentActivity(){
             screen("Cleanup summary");label("${moved.size} verified in Trash",24);label("${bytes(moved.sumOf{it.size})} moved to Trash. Space is released when Trash is emptied.")
             if(waiting.size!=moved.size)label("${waiting.size-moved.size} could not be verified.")
             if(categories.isNotEmpty())label(categories.joinToString(" · "))
-            waiting=emptyList();submitting=false;selected.clear();getPreferences(0).edit().remove("run").apply();button("Done"){finish()}
+            waiting=emptyList();submitting=false;selected.clear();getPreferences(0).edit().remove("run").apply();button("Scan again",this@SmartActivity::rescan);button("Done"){finish()}
         }
     }
     override fun onCreate(state:Bundle?){super.onCreate(state);run=getPreferences(0).getString("run","").orEmpty()
@@ -73,7 +73,8 @@ class SmartActivity:ComponentActivity(){
         button("Scan photos & videos"){if(access())startScan() else request.launch(permissions())}
         if(Build.VERSION.SDK_INT>=34 && access())button("Manage media access"){request.launch(permissions())}
     }
-    private fun startScan(){val task=OneTimeWorkRequestBuilder<SmartWorker>().build();run=task.id.toString();getPreferences(0).edit().putString("run",run).apply();manager.enqueueUniqueWork("smart-media",ExistingWorkPolicy.REPLACE,task);observe(task.id)}
+    private fun rescan(){if(access())startScan() else request.launch(permissions())}
+    private fun startScan(){selected.clear();waiting=emptyList();category=null;val task=OneTimeWorkRequestBuilder<SmartWorker>().build();run=task.id.toString();getPreferences(0).edit().putString("run",run).apply();manager.enqueueUniqueWork("smart-media",ExistingWorkPolicy.REPLACE,task);observe(task.id)}
     private fun observe(id:UUID,pending:List<String> = emptyList()){
         manager.getWorkInfoByIdLiveData(id).observe(this){work->
             if(run!=id.toString())return@observe
@@ -138,7 +139,7 @@ class SmartActivity:ComponentActivity(){
         }
         val kept=results.count{(_,i)->i.findings.any{it.category=="Protected"}}
         if(kept>0)cards.addView(MaterialButton(this).apply{text="Protected   ·   $kept files";isAllCaps=false;setOnClickListener{category="Protected";filter="All";review()}})
-        button("Scan again"){landing()}
+        button("Scan again",this::rescan)
     }
     private fun thumbLoader(image:ImageView,m:Medium){
         if(Build.VERSION.SDK_INT>=29)lifecycleScope.launch{val b=withContext(Dispatchers.IO){runCatching{contentResolver.loadThumbnail(Uri.parse(m.uri),android.util.Size(160,160),null)}.getOrNull()};if(b!=null)image.setImageBitmap(b)}
@@ -146,6 +147,7 @@ class SmartActivity:ComponentActivity(){
     private fun thumbnail(row:LinearLayout,m:Medium){val image=ImageView(this);image.scaleType=ImageView.ScaleType.CENTER_CROP;row.addView(image,LinearLayout.LayoutParams(dp(58),dp(58)));thumbLoader(image,m)}
     private fun review(){
         val cat=category?:return dashboard();screen(cat)
+        button("Scan again",this::rescan)
         val rows=results.keys.filter{m->results.getValue(m).findings.any{it.category==cat} && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
         val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
         val controls=LinearLayout(this);page.addView(controls)

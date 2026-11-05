@@ -75,7 +75,7 @@ public final class HomeActivity extends AppCompatActivity {
             if(w==3){try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}}
             if(w==5)open("photos");
             if(w==6)open("cache");
-            if(w==4)message("Clenzy 1.9.2","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
+            if(w==4)message("Clenzy 1.9.3","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
         }).show();
     }
     private void history(){

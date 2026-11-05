@@ -24,14 +24,18 @@ internal object SmartRules {
     fun assess(source:String,video:Boolean,bytes:Long,ageDays:Long,ocr:String,face:Boolean,code:Boolean,
                labels:Set<String>,quality:String?,today:LocalDate=LocalDate.now()):List<Finding> {
         val t=ocr.lowercase(Locale.ROOT)
+        val cameraPhoto=source=="Camera" && !video
+        val screen=cameraPhoto && (labels.any{it.lowercase(Locale.ROOT) in setOf("computer","monitor","computer monitor","laptop","screen","desktop computer","computer keyboard","computer hardware","television")} ||
+            Regex("""\b(taskbar|task manager|system settings|file explorer|address bar|terminal|localhost|sign out|new tab|view source|start menu|recycle bin|command prompt)\b""").findAll(t).map{it.value}.distinct().count()>=2)
         val protection=when {
             code -> "Contains a barcode or QR code"
             important.containsMatchIn(t) -> "May contain a document, payment or reservation"
             face || labels.any{it in setOf("Person","Baby","Handwriting","Handwritten text","Document")} -> "May contain a person or important information"
-            source=="Camera" || source=="WhatsApp sent" -> "Possible personal original"
+            (source=="Camera" && !screen) || source=="WhatsApp sent" -> "Possible personal original"
             else -> null
         }
         if(protection!=null)return listOf(Finding("Protected",protection,true))
+        if(screen)return listOf(Finding("Screen photos","Camera photo with computer or interface cues · review manually"))
         val out=mutableListOf<Finding>()
         val shared=source in setOf("WhatsApp","Telegram","Messenger","Instagram","Downloads")
         if(promo.containsMatchIn(t) && (shared || source=="Screenshot" || promo.findAll(t).count()>1)){

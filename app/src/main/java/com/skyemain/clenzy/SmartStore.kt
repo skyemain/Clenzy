@@ -8,6 +8,7 @@ import org.json.JSONObject
 
 internal data class Medium(val uri:String,val name:String,val stamp:Long,val size:Long,val width:Int,val height:Int,
     val duration:Long,val source:String,val video:Boolean,val taken:Long,val orientation:Int) {
+    val analysisRevision get() = if(source=="Camera" && !video) "/screen-v1" else ""
     val freshness get() = "$stamp/$size/$orientation/$source/$name/${SmartRules.version}"
 }
 internal data class Insight(val findings:List<Finding>,val frames:List<Long>,val sharp:Double,val digest:String="",val complete:Boolean=true){
@@ -30,19 +31,19 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
         db.execSQL("CREATE TABLE choices(uri TEXT, freshness TEXT, choice TEXT, PRIMARY KEY(uri,freshness))")
     }
     override fun onUpgrade(db:SQLiteDatabase,old:Int,new:Int)=Unit
-    fun cached(m:Medium):Insight?=readableDatabase.rawQuery("SELECT analysis FROM cache WHERE uri=? AND freshness=?",arrayOf(m.uri,m.freshness)).use{if(it.moveToFirst()) Insight.decode(it.getString(0)) else null}
+    fun cached(m:Medium):Insight?=readableDatabase.rawQuery("SELECT analysis FROM cache WHERE uri=? AND freshness=?",arrayOf(m.uri,m.freshness+m.analysisRevision)).use{if(it.moveToFirst()) Insight.decode(it.getString(0)) else null}
     fun matchingCache(media:List<Medium>):MutableMap<String,Insight>{
         val wanted=media.associateBy{it.uri}
         val found=HashMap<String,Insight>()
         readableDatabase.rawQuery("SELECT uri,freshness,analysis FROM cache",null).use{cursor->
             while(cursor.moveToNext()){
                 val uri=cursor.getString(0)
-                if(wanted[uri]?.freshness==cursor.getString(1)) found[uri]=Insight.decode(cursor.getString(2))
+                if(wanted[uri]?.let{it.freshness+it.analysisRevision}==cursor.getString(1)) found[uri]=Insight.decode(cursor.getString(2))
             }
         }
         return found
     }
-    fun cache(m:Medium,i:Insight){writableDatabase.execSQL("INSERT OR REPLACE INTO cache VALUES(?,?,?)",arrayOf(m.uri,m.freshness,i.encode()))}
+    fun cache(m:Medium,i:Insight){writableDatabase.execSQL("INSERT OR REPLACE INTO cache VALUES(?,?,?)",arrayOf(m.uri,m.freshness+m.analysisRevision,i.encode()))}
     fun retain(group:String,m:Medium){
         writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(group,"keeper",m.uri))
     }
