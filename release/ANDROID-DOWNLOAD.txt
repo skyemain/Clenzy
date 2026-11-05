@@ -1,1 +1,1 @@
-https://github.com/skyemain/VCleaner/releases/download/android-v1.9.1-build-59/Clenzy-1.9.1-android-candidate.apk
+https://github.com/skyemain/VCleaner/releases/download/android-v1.9.3-build-61/Clenzy-1.9.3-android-candidate.apk
