@@ -99,10 +99,35 @@ public final class CleanActivity extends AppCompatActivity {
         selectedLabel=text("",12,muted);footer.addView(selectedLabel);cleanButton=button("Clean selected",true,this::confirm);footer.addView(cleanButton);selection();
         String requested=getIntent().getStringExtra("category");if(!categoryOpened&&requested!=null){categoryOpened=true;for(var group:groups)if(group.title().equals(requested)){page.post(()->{if(!isFinishing()&&!isDestroyed())showGroup(group);});break;}}
     }
-    private void selection(){if(sheetSelection!=null)sheetSelection.setText(model.selected.size()+" selected · "+size(ReviewRules.selectedBytes(model.files,model.selected)));for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+(group.files().size()==1?" file":" files")+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
+    private void selection(){if(sheetSelection!=null){sheetSelection.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);sheetSelection.setText(model.selected.size()+" selected · "+size(ReviewRules.selectedBytes(model.files,model.selected)));}for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+(group.files().size()==1?" file":" files")+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
     private void confirm(){new AlertDialog.Builder(this).setTitle("Clear "+size(ReviewRules.selectedBytes(model.files,model.selected))+"?").setMessage("You selected "+model.selected.size()+" files. Shared-file deletion is permanent. Originals in duplicate groups will be kept.").setNegativeButton("Keep reviewing",null).setPositiveButton("Confirm cleanup",(d,w)->model.delete()).show();}
     private void showGroup(CleanupGroups.Group group){
-        sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackgroundColor(surface);content.setPadding(dp(22),dp(16),dp(22),dp(16));content.addView(text(group.title(),25,ink));content.addView(text(group.files().size()+(group.files().size()==1?" file":" files"),12,muted));
+        sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackgroundColor(surface);content.setPadding(dp(22),dp(16),dp(22),dp(16));
+        View handle = new View(this);
+        GradientDrawable grip = new GradientDrawable();
+        grip.setColor(muted);
+        grip.setCornerRadius(dp(3));
+        handle.setBackground(grip);
+        LinearLayout.LayoutParams gripSize = new LinearLayout.LayoutParams(dp(32),dp(4));
+        gripSize.gravity = Gravity.CENTER_HORIZONTAL;
+        gripSize.bottomMargin = dp(14);
+        content.addView(handle,gripSize);
+
+        LinearLayout heading = new LinearLayout(this);
+        heading.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView categoryIcon = new ImageView(this);
+        categoryIcon.setImageDrawable(new LineIcon(group.title(),accent));
+        heading.addView(categoryIcon,new LinearLayout.LayoutParams(dp(32),dp(32)));
+        LinearLayout titleBlock = column();
+        titleBlock.setPadding(dp(14),0,0,0);
+        TextView title = text(group.title(),24,ink);
+        title.setTypeface(null,Typeface.BOLD);
+        title.setPadding(0,0,0,0);
+        titleBlock.addView(title);
+        titleBlock.addView(text(group.files().size()+(group.files().size()==1?" file":" files"),13,muted));
+        heading.addView(titleBlock);
+        content.addView(heading);
+
         if(group.files().isEmpty()){
             content.addView(text(model.unreadableFolders>0||model.scanTruncated?"Scan incomplete. Some folders could not be checked.":"No matching files in scanned phone storage.",14,muted));
             if(Build.VERSION.SDK_INT>=30&&!Environment.isExternalStorageManager()) content.addView(button("Storage access",false,()->{sheet.dismiss();permissionSheet();}));
@@ -110,9 +135,9 @@ public final class CleanActivity extends AppCompatActivity {
         } else {
         LinearLayout controls=new LinearLayout(this);RecyclerView list=new RecyclerView(this);list.setLayoutManager(new LinearLayoutManager(this));FileAdapter adapter=new FileAdapter(group);list.setAdapter(adapter);
         MaterialButton sort=button("Sort",false,()->new AlertDialog.Builder(this).setTitle("Sort files").setItems(new String[]{"Largest first","Oldest first","Newest first","Name"},(d,w)->{adapter.sort=w;adapter.refresh();}).show());controls.addView(sort);
-        sheetSelection=text("",12,muted);content.addView(sheetSelection);selection();
+        sheetSelection=text("",12,muted);selection();
         controls.addView(button(group.title().equals("Duplicate copies")?"Select extra copies":"Select all",false,()->{for(var f:adapter.visible)if(!group.keepers().contains(f.uri()))model.selected.add(f.uri());adapter.notifyDataSetChanged();selection();}),new LinearLayout.LayoutParams(0,-2,1));
-        controls.addView(button("Clear",false,()->{for(var f:adapter.visible)model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));
+        controls.addView(button("Clear",false,()->{for(var f:adapter.visible)model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));content.addView(sheetSelection);
         }
         content.addView(button("Done",true,()->sheet.dismiss()));
         GradientDrawable sheetBackground=new GradientDrawable();sheetBackground.setColor(surface);sheetBackground.setCornerRadius(dp(24));content.setBackground(sheetBackground);content.setClipToOutline(true);sheet.setContentView(content,new ViewGroup.LayoutParams(-1,-1));sheet.setOnDismissListener(d->{sheetSelection=null;selection();});sheet.show();android.widget.FrameLayout bottom=sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);if(bottom!=null){bottom.getLayoutParams().height=(int)(getResources().getDisplayMetrics().heightPixels*.85);if(group.files().isEmpty())bottom.getLayoutParams().height=ViewGroup.LayoutParams.WRAP_CONTENT;bottom.requestLayout();sheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);}
@@ -120,7 +145,7 @@ public final class CleanActivity extends AppCompatActivity {
     private final class FileAdapter extends RecyclerView.Adapter<FileAdapter.Holder>{
         final CleanupGroups.Group group;List<ReviewFile> visible;int sort;FileAdapter(CleanupGroups.Group group){this.group=group;visible=new ArrayList<>(group.files());}
         void refresh(){visible=new ArrayList<>(group.files());Comparator<ReviewFile> order=switch(sort){case 1->Comparator.comparingLong(ReviewFile::modified);case 2->Comparator.comparingLong(ReviewFile::modified).reversed();case 3->Comparator.comparing(ReviewFile::name,String.CASE_INSENSITIVE_ORDER);default->Comparator.comparingLong(ReviewFile::bytes).reversed();};visible.sort(order);notifyDataSetChanged();}
-        final class Holder extends RecyclerView.ViewHolder{TextView name,detail;CheckBox check;ImageView image;Holder(LinearLayout row){super(row);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(0,dp(10),0,dp(10));image=new ImageView(CleanActivity.this);image.setScaleType(ImageView.ScaleType.CENTER_CROP);row.addView(image,new LinearLayout.LayoutParams(dp(54),dp(58)));LinearLayout labels=column();labels.setPadding(dp(12),0,dp(6),0);name=text("",13,ink);detail=text("",11,muted);labels.addView(name);labels.addView(detail);row.addView(labels,new LinearLayout.LayoutParams(0,-2,1));check=new CheckBox(CleanActivity.this);check.setButtonTintList(android.content.res.ColorStateList.valueOf(accent));row.addView(check);}}
+        final class Holder extends RecyclerView.ViewHolder{TextView name,detail;CheckBox check;ImageView image;Holder(LinearLayout row){super(row);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(0,dp(10),0,dp(10));image=new ImageView(CleanActivity.this);image.setScaleType(ImageView.ScaleType.CENTER_CROP);row.addView(image,new LinearLayout.LayoutParams(dp(54),dp(58)));LinearLayout labels=column();labels.setPadding(dp(12),0,dp(6),0);name=text("",15,ink);name.setMaxLines(2);name.setEllipsize(android.text.TextUtils.TruncateAt.END);name.setPadding(0,0,0,dp(3));detail=text("",12,muted);detail.setPadding(0,0,0,0);labels.addView(name);labels.addView(detail);row.addView(labels,new LinearLayout.LayoutParams(0,-2,1));check=new CheckBox(CleanActivity.this);check.setButtonTintList(android.content.res.ColorStateList.valueOf(accent));row.addView(check);}}
         @Override public Holder onCreateViewHolder(ViewGroup parent,int type){LinearLayout row=new LinearLayout(CleanActivity.this);row.setLayoutParams(new RecyclerView.LayoutParams(-1,-2));return new Holder(row);}
         @Override public int getItemCount(){return visible.size();}
         @Override public void onBindViewHolder(Holder holder,int position){ReviewFile file=visible.get(position);boolean keep=group.keepers().contains(file.uri());holder.name.setText(file.name());holder.detail.setText(size(file.bytes())+(keep?" · Original kept":""));holder.check.setOnCheckedChangeListener(null);holder.check.setChecked(model.selected.contains(file.uri()));holder.check.setEnabled(!keep);holder.check.setContentDescription(keep?"Original kept":"Select "+file.name());holder.check.setOnCheckedChangeListener((v,on)->{if(on)model.selected.add(file.uri());else model.selected.remove(file.uri());selection();});holder.image.setImageDrawable(new LineIcon(file.name().toLowerCase(Locale.ROOT).matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$")?"Videos":"file",accent));holder.image.setTag(file.uri());holder.image.setContentDescription("Preview "+file.name());holder.image.setOnClickListener(v->preview(file));
