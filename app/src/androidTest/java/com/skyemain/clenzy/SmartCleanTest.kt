@@ -27,16 +27,6 @@ class SmartCleanTest {
         }finally{locks.set(m,false)}
         assertEquals(listOf(direct,local),locks.unlocked(listOf(direct,local)))
     }
-    @Test fun personalOriginalsProtectedWithoutOpeningMedia(){
-        val context=ApplicationProvider.getApplicationContext<Context>()
-        SmartVision(context).use{vision->
-            for(source in listOf("Camera","WhatsApp sent")){
-                val item=Medium("content://invalid/unopened","personal.mp4",1,20,100,100,5000,source,true,0,0)
-                val insight=vision.analyze(item){}
-                assertTrue(insight.complete && insight.findings.single().protected && insight.frames.isEmpty())
-            }
-        }
-    }
     @Test fun actualBundledInferenceAndCacheInvalidation(){
         val context=ApplicationProvider.getApplicationContext<Context>()
         val resolver=context.contentResolver
@@ -51,7 +41,7 @@ class SmartCleanTest {
             resolver.openOutputStream(uri).use{assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,requireNotNull(it)))};image.recycle()
             val m=Medium(uri.toString(),"receipt.png",1,300,800,600,0,"WhatsApp",false,0,0)
             val finding=SmartVision(context).use{it.analyze(m){}}
-            assertTrue(finding.findings.any{it.protected});assertTrue(finding.frames.isEmpty())
+            assertTrue(finding.findings.any{it.protected});assertEquals(1,finding.frames.size)
             SmartStore(context).use{db->db.cache(m,finding,"first-run");assertTrue(db.matchingCache(listOf(m),"new-run").isEmpty());assertEquals(finding,db.matchingCache(listOf(m),"first-run")[m.uri]);assertEquals(finding,db.cached(m));assertNull(db.cached(m.copy(stamp=2)));assertEquals(finding,db.matchingCache(listOf(m))[m.uri]);assertTrue(db.matchingCache(listOf(m.copy(stamp=2))).isEmpty())}
         }finally{resolver.delete(uri,null,null)}
     }

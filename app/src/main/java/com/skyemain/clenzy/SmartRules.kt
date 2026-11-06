@@ -6,7 +6,7 @@ import kotlin.math.abs
 
 internal data class Finding(val category:String, val reason:String, val protected:Boolean=false, val group:String="")
 internal object SmartRules {
-    const val version = 2
+    const val version = 3
     val important = Regex("""\b(receipt|invoice|paid|payment confirmation|statement|booking|boarding pass|passport|driv(ing|er.s) licen[cs]e|prescription|diagnosis|ticket|reservation|insurance|tax return|appointment|account number|medical report)\b""")
     val promo = Regex("""\b(sale|discount|coupon|clearance|flash sale|special offer|promo code|shop now|free delivery|order now|offer ends|valid until)\b""")
     val greeting = Regex("""\b(good morning|good night|happy birthday|happy diwali|merry christmas|happy new year|happy sunday|daily blessing)\b""")

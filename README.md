@@ -38,3 +38,17 @@ Validated 1.7.0: [CI 41945998280](https://github.com/skyemain/VCleaner/actions/r
 
 ## Analyze with AI (Android candidate)
 Analyze with AI opens AI Smart Clean from Home. The scan reads accessible MediaStore content URIs, including selected-photo access. Bundled ML Kit models run Latin-script OCR, generic labeling, barcode and face detection on bounded images and sampled video frames. No media or OCR text is sent to a server or written to the analysis database. Semantic categories use rules, with English promotional, greeting and important-document vocabulary. Shared origin and low quality are review signals. SHA-256 identifies byte matches; perceptual hashes identify possible visual matches. The private cache reuses unchanged analyses and stores keep decisions. Scans use a cancellable WorkManager coroutine. System Trash requires Android 11 or later; older phones can review and preview files. Trash does not immediately reclaim capacity. No item starts selected.
+
+## Android 2.0 image analysis research
+Galaxy S24 target. Google's ML Kit GenAI supported-device list excludes S24 and background inference, so this build bundles an independent SigLIP 2 image encoder with precomputed text-description vectors. Model output ranks visual categories, supplemented by OCR, QR, faces and generic labels. Ranking thresholds are conservative engineering gates, not calibrated accuracy percentages. Borderline cases remain manual review. Personal-media and document evidence overrides cleanup suggestions. Latin and Devanagari OCR run locally; matching translated cleanup phrases currently covers English and limited Hindi. EXIF rotation and mirroring are applied before analysis. Video samples span the timeline, with stronger agreement required across frames.
+
+Model provenance: Google SigLIP 2 base patch16-224, Apache-2.0. ONNX conversion by onnx-community, revision ba1f3b0843f24bc5417d38e19c37b287d719b2f4. Quantized vision SHA256 5f2b401c1a4fc095702a5d45348e17ad46c4f87064085365b43c6e8eaa5c0070. Build downloads and checks the model, then bundles it for offline use. Text vectors derive from the matching text encoder, with lowercase prompts padded to 64 tokens, pooler_output, per-prompt L2 normalization, then averaged and normalized per category.
+
+Research sources:
+- https://developers.google.com/ml-kit/genai
+- https://huggingface.co/google/siglip2-base-patch16-224
+- https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX
+- https://developers.google.com/ml-kit/vision/text-recognition/v2/android
+- https://onnxruntime.ai/docs/get-started/with-java
+
+Evaluation currently uses public scikit-image astronaut (NASA/public domain) and Chelsea cat (Stefan van der Walt, CC0) plus synthetic receipt, promotion, screen and greeting graphics. These are smoke tests and false-positive checks, not a representative benchmark or a measured Galaxy S24 accuracy percentage. APK size alone does not establish accuracy. Model labels, OCR and handcrafted rules can all make mistakes. User locks and Android Trash confirmation remain mandatory protections.

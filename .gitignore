@@ -5,3 +5,12 @@ local.properties
 *.jks
 *.keystore
 .DS_Store
+
+app/src/main/assets/*.onnx
+app/src/main/assets/*.download
+
+!build/
+!build/fetch-vision.sh
+!build/semantic-prompts.json
+!build/prepare-semantic.py
+app/src/androidTest/assets/*.png

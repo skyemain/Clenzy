@@ -1,0 +1,6 @@
+SigLIP 2 base patch16-224
+Original model: Google, https://huggingface.co/google/siglip2-base-patch16-224
+ONNX conversion: onnx-community, https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX
+Pinned conversion revision: ba1f3b0843f24bc5417d38e19c37b287d719b2f4
+License: Apache License 2.0, accompanying SIGLIP-LICENSE.txt
+Clenzy bundles the quantized vision encoder unchanged and precomputed category prompt embeddings.
