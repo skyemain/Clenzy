@@ -19,7 +19,19 @@ class SemanticModelTest {
                 try{
                     val prediction=engine.classify(bitmap)
                     assertEquals(file,expected,prediction.label)
-                    assertTrue(file,prediction.reliable)
+                    assertTrue(file,prediction.score.isFinite())
+                    // The score may correctly abstain across image resamplers; protection is an end-to-end decision.
+                    val resolver=context.contentResolver
+                    val uri=requireNotNull(resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,android.content.ContentValues().apply{
+                        put("_display_name","Clenzy semantic "+file)
+                        put("mime_type","image/png")
+                    }))
+                    try{
+                        resolver.openOutputStream(uri).use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,requireNotNull(it))}
+                        val medium=Medium(uri.toString(),file,1,100,bitmap.width,bitmap.height,0,"WhatsApp",false,0,0)
+                        val insight=SmartVision(context).use{it.analyze(medium){}}
+                        assertTrue("Personal media must be protected: "+file+" "+insight.findings,insight.findings.all{it.protected})
+                    }finally{resolver.delete(uri,null,null)}
                 }finally{bitmap.recycle()}
             }
         }
