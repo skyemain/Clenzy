@@ -70,6 +70,8 @@ jobs:
             adb shell wm size 720x1280
             adb shell wm density 280
             adb shell wm dismiss-keyguard
+            adb shell am force-stop com.android.launcher3
+            sleep 5
             gradle connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true || { find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} +; adb logcat -d -s AndroidRuntime System.err; exit 1; }
             adb shell am force-stop com.skyemain.clenzy
             adb shell am start -n com.skyemain.clenzy/.HomeActivity
@@ -82,6 +84,7 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-cleanup.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-selection.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-results.png screenshots/
+            adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-gallery.png screenshots/
       - uses: actions/upload-artifact@v4
         with:
           name: Clenzy-Android-screenshots

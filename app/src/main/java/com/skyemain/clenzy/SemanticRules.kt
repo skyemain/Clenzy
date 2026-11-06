@@ -11,7 +11,7 @@ internal object SemanticRules {
         val document=code || SmartRules.important.containsMatchIn(text) || hindiDocument ||
             topics.any{it in setOf("identity","receipt","document")}
         if(document)return listOf(Finding("Protected",if(code)"Contains a QR code or barcode" else "Document or payment information detected",true))
-        val personal=topics.any{it in setOf("people","pet","landscape","food")}
+        val personal=matches.any{it.label in setOf("people","pet","landscape","food") && it.score>=0.04}
         if(personal)return listOf(Finding("Protected","Visual model suggests personal memories or everyday photographs",true))
         val graphical=topics.any{it in setOf("promotion","greeting","meme","event","shopping","screen","chat")}
         if(face && !graphical)return listOf(Finding("Protected","Person detected without a clear graphic or screen context",true))
