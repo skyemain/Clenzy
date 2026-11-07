@@ -123,7 +123,7 @@ class SmartActivity:ComponentActivity(){
     private fun protected(m:Medium)=locks.contains(m.uri)
     private fun dashboard(){
         category=null;screen("AI Smart Clean")
-        val candidates=results.filter{(m,i)->!protected(m)&&i.findings.any{it.category!="Review manually"}}.keys
+        val candidates=results.filter{(m,i)->!protected(m)&&i.findings.any{it.category!="Review manually" && it.category!="Protected"}}.keys
         val eligible=candidates.toSet()
         val grouped=linkedMapOf<String,MutableList<Medium>>()
         for((item,insight) in results){
