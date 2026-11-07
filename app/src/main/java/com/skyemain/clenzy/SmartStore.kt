@@ -58,6 +58,16 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
             db.execSQL("INSERT INTO results VALUES(?,?,?,?)",arrayOf(run,m.uri,meta.toString(),i.encode()))
         };db.execSQL("DELETE FROM cache WHERE uri NOT IN (SELECT uri FROM results)");db.setTransactionSuccessful()}finally{db.endTransaction()}
     }
+    fun removeResults(run:String,uris:Set<String>){
+        val db=writableDatabase;db.beginTransaction()
+        try{
+            uris.forEach{uri->
+                db.delete("results","run=? AND uri=?",arrayOf(run,uri))
+                db.delete("cache","uri=?",arrayOf(uri))
+            }
+            db.setTransactionSuccessful()
+        }finally{db.endTransaction()}
+    }
     fun results(run:String):Map<Medium,Insight>{
         val out=linkedMapOf<Medium,Insight>()
         readableDatabase.rawQuery("SELECT uri, metadata, analysis FROM results WHERE run=?",arrayOf(run)).use{c->while(c.moveToNext()){

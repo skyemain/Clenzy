@@ -57,11 +57,13 @@ class SmartActivity:ComponentActivity(){
         if(response.resultCode!=Activity.RESULT_OK){submitting=false;waiting=emptyList();review();return@registerForActivityResult}
         lifecycleScope.launch{
             val moved=withContext(Dispatchers.IO){waiting.filter{m->runCatching{contentResolver.query(Uri.parse(m.uri),arrayOf("is_trashed"),null,null,null)?.use{it.moveToFirst()&&it.getInt(0)==1}==true}.getOrDefault(false)}}
-            val categories=moved.flatMap{m->results[m]?.findings.orEmpty().map{it.category}}.distinct()
-            screen("Cleanup summary");label("${moved.size} verified in Trash",24);label("${bytes(moved.sumOf{it.size})} moved to Trash. Space is released when Trash is emptied.")
-            if(waiting.size!=moved.size)label("${waiting.size-moved.size} could not be verified.")
-            if(categories.isNotEmpty())label(categories.joinToString(" · "))
-            waiting=emptyList();submitting=false;selected.clear();getPreferences(0).edit().remove("run").apply();button("Scan again",this@SmartActivity::rescan);button("Done"){finish()}
+            val movedUris=moved.map{it.uri}.toSet()
+            results=results.filterKeys{it.uri !in movedUris}
+            withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.removeResults(run,movedUris)}}
+            waiting=emptyList();submitting=false;selected.clear()
+            Toast.makeText(this@SmartActivity,"${moved.size} moved to Trash",Toast.LENGTH_SHORT).show()
+            review()
+
         }
     }
     override fun onCreate(state:Bundle?){super.onCreate(state);run=getPreferences(0).getString("run","").orEmpty()
@@ -72,6 +74,7 @@ class SmartActivity:ComponentActivity(){
     private fun bytes(n:Long)=Formatter.formatShortFileSize(this,n)
     private fun screen(title:String){
         page=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(24),dp(20),dp(20))}
+        page.background=Aurora.background();Aurora.window(this)
         setContentView(page)
         ViewCompat.setOnApplyWindowInsetsListener(page){view,insets->
             val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -80,8 +83,8 @@ class SmartActivity:ComponentActivity(){
         }
         label(title,29).setTypeface(null,Typeface.BOLD)
     }
-    private fun label(value:String,size:Int=15)=TextView(this).apply{text=value;textSize=size.toFloat();setPadding(0,dp(5),0,dp(7));page.addView(this)}
-    private fun button(name:String,action:()->Unit)=MaterialButton(this).apply{text=name;isAllCaps=false;cornerRadius=dp(18);setOnClickListener{action()};page.addView(this)}
+    private fun label(value:String,size:Int=15)=TextView(this).apply{text=value;setTextColor(Aurora.INK);textSize=size.toFloat();setPadding(0,dp(5),0,dp(7));page.addView(this)}
+    private fun button(name:String,action:()->Unit)=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()};page.addView(this)}
     private fun granted(p:String)=checkSelfPermission(p)==PackageManager.PERMISSION_GRANTED
     private fun access()=if(Build.VERSION.SDK_INT>=33)granted(READ_MEDIA_IMAGES)||granted(READ_MEDIA_VIDEO)||(Build.VERSION.SDK_INT>=34&&granted(READ_MEDIA_VISUAL_USER_SELECTED)) else granted(READ_EXTERNAL_STORAGE)
     private fun permissions()=when{Build.VERSION.SDK_INT>=34->arrayOf(READ_MEDIA_IMAGES,READ_MEDIA_VIDEO,READ_MEDIA_VISUAL_USER_SELECTED);Build.VERSION.SDK_INT>=33->arrayOf(READ_MEDIA_IMAGES,READ_MEDIA_VIDEO);else->arrayOf(READ_EXTERNAL_STORAGE)}
@@ -125,15 +128,15 @@ class SmartActivity:ComponentActivity(){
         val grouped=linkedMapOf<String,MutableList<Medium>>()
         for((item,insight) in results){
             for(finding in insight.findings.distinctBy{it.category}){
-                if(finding.category!="Protected")grouped.getOrPut(finding.category){mutableListOf()}.add(item)
+                if(finding.category!="Protected" && !protected(item))grouped.getOrPut(finding.category){mutableListOf()}.add(item)
             }
         }
         val hero=LinearLayout(this).apply{
             orientation=LinearLayout.VERTICAL
-            background=GradientDrawable().apply{setColor(0xff163e34.toInt());cornerRadius=dp(18).toFloat()}
+            background=Aurora.glass(this@SmartActivity,true)
             setPadding(dp(18),dp(12),dp(18),dp(14))
         }
-        fun heroLine(value:String,size:Int)=TextView(this).apply{text=value;textSize=size.toFloat();setTextColor(android.graphics.Color.WHITE);hero.addView(this)}
+        fun heroLine(value:String,size:Int)=TextView(this).apply{text=value;setTextColor(Aurora.INK);textSize=size.toFloat();setTextColor(android.graphics.Color.WHITE);hero.addView(this)}
         heroLine("${bytes(candidates.sumOf{it.size})} to review",29).setTypeface(null,Typeface.BOLD)
         heroLine("${eligible.size} candidates · ${results.size} media checked",14)
         page.addView(hero)
@@ -148,7 +151,7 @@ class SmartActivity:ComponentActivity(){
                 val members=grouped.getValue(cat)
                 val card=LinearLayout(this).apply{
                     orientation=LinearLayout.VERTICAL
-                    background=GradientDrawable().apply{cornerRadius=dp(15).toFloat();setColor(if(dark)0xff202d29.toInt() else -1);setStroke(dp(1),if(dark)0xff40524a.toInt() else 0xffd7e2dc.toInt())}
+                    background=Aurora.glass(this@SmartActivity,false)
                     clipToOutline=true;isFocusable=true
                     setOnClickListener{category=cat;filter="All";review()}
                 }
@@ -161,8 +164,6 @@ class SmartActivity:ComponentActivity(){
             }
             if(pair.size==1)row.addView(Space(this),LinearLayout.LayoutParams(0,1,1f))
         }
-        val kept=results.count{(m,i)->locks.contains(m.uri)||i.findings.any{it.category=="Protected"}}
-        if(kept>0)cards.addView(MaterialButton(this).apply{text="Protected   ·   $kept files";isAllCaps=false;setOnClickListener{category="Protected";filter="All";review()}})
         if(Build.VERSION.SDK_INT>=33 && !(granted(READ_MEDIA_IMAGES)&&granted(READ_MEDIA_VIDEO))){
             button("Limited media access · Manage"){startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+packageName)))}
         }
@@ -203,7 +204,7 @@ class SmartActivity:ComponentActivity(){
         val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
         val controls=LinearLayout(this);page.addView(controls)
         fun chip(name:String,action:()->Unit):MaterialButton{
-            val control=MaterialButton(this).apply{text=name;isAllCaps=false;setOnClickListener{action()}}
+            val control=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()}}
             controls.addView(control,LinearLayout.LayoutParams(0,-2,1f))
             return control
         }
@@ -231,7 +232,7 @@ class SmartActivity:ComponentActivity(){
                 }
                 cell.addView(photo,FrameLayout.LayoutParams(-1,-1))
                 thumbLoader(photo,m,true)
-                val tint=View(this@SmartActivity).apply{setBackgroundColor(0x6634d6b0);isClickable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+                val tint=View(this@SmartActivity).apply{setBackgroundColor(0x6677aaff);isClickable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
                 cell.addView(tint,FrameLayout.LayoutParams(-1,-1))
                 fun updateSelection(){
                     tint.visibility=if(m in selected)View.VISIBLE else View.GONE
@@ -250,6 +251,7 @@ class SmartActivity:ComponentActivity(){
                     AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+(if(locks.contains(m.uri))"Locked by you" else results.getValue(m).findings.firstOrNull{it.category==cat}?.reason.orEmpty())).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
                         results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,!locks.contains(m.uri)) else if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
                     }}.show();true};return cell}}
+        if(sorted.isEmpty())label("No items remaining",16)
         grid.adapter=adapter
         allButton=chip("Select all"){val eligible=eligible();if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
         action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}

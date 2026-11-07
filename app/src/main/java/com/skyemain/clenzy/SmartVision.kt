@@ -18,7 +18,7 @@ import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import java.util.Locale
 import kotlin.math.*
 
-internal class SmartVision(val context:Context):java.io.Closeable {
+internal class SmartVision(val context:Context, private val parallel:Boolean=true):java.io.Closeable {
     private val text=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val devanagari=TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
     private val faces=FaceDetection.getClient(FaceDetectorOptions.Builder().build())
@@ -60,19 +60,31 @@ internal class SmartVision(val context:Context):java.io.Closeable {
             try {
                 check()
                 val input=InputImage.fromBitmap(bitmap,0)
-                val latin=Tasks.await(text.process(input))
-                words.append(' ').append(latin.text)
-                check()
-                // A second script recognizer supplements Latin OCR for Indian-language media.
-                val hindi=Tasks.await(devanagari.process(input))
-                words.append(' ').append(hindi.text)
-                check()
-                qr=qr || Tasks.await(barcode.process(input)).isNotEmpty()
-                person=person || Tasks.await(faces.process(input)).isNotEmpty()
-                labels.addAll(Tasks.await(label.process(input)).filter{it.confidence>=0.75f}.map{it.text})
-                check()
-                semanticUsed=true
-                semantics+=semantic.classify(bitmap)
+                // Start independent recognizers together; retain the bitmap until every task finishes.
+                val tasks=mutableListOf<com.google.android.gms.tasks.Task<*>>()
+                fun <T> launch(task:com.google.android.gms.tasks.Task<T>):com.google.android.gms.tasks.Task<T>{
+                    tasks.add(task)
+                    if(!parallel)Tasks.await(task)
+                    return task
+                }
+                try {
+                    val latin=launch(text.process(input))
+                    val hindi=launch(devanagari.process(input))
+                    val codes=launch(barcode.process(input))
+                    val detectedFaces=launch(faces.process(input))
+                    val detectedLabels=launch(label.process(input))
+                    check();semanticUsed=true
+                    semantics+=semantic.classify(bitmap)
+                    Tasks.await(com.google.android.gms.tasks.Tasks.whenAllComplete(tasks))
+                    words.append(' ').append(Tasks.await(latin).text).append(' ').append(Tasks.await(hindi).text)
+                    qr=qr || Tasks.await(codes).isNotEmpty()
+                    person=person || Tasks.await(detectedFaces).isNotEmpty()
+                    labels.addAll(Tasks.await(detectedLabels).filter{it.confidence>=0.75f}.map{it.text})
+                    check()
+                } finally {
+                    // Native ML tasks cannot be cancelled by recycling their input.
+                    if(tasks.isNotEmpty())Tasks.await(com.google.android.gms.tasks.Tasks.whenAllComplete(tasks))
+                }
                 val small=Bitmap.createScaledBitmap(bitmap,256,256,true)
                 val pixels=IntArray(256*256)
                 small.getPixels(pixels,0,256,0,0,256,256)

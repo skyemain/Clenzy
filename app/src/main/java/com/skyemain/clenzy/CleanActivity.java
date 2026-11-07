@@ -37,9 +37,7 @@ public final class CleanActivity extends AppCompatActivity {
     private String size(long bytes){return Formatter.formatFileSize(this,Math.max(0,bytes));}
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);model=new ViewModelProvider(this).get(CleanupViewModel.class);
-        boolean dark=(getResources().getConfiguration().uiMode&48)==32;
-        ink=Color.parseColor(dark?"#F2F5FC":"#182033");muted=Color.parseColor(dark?"#A0AEC2":"#747E92");bg=Color.parseColor(dark?"#111923":"#F7F9FD");surface=Color.parseColor(dark?"#1B2634":"#FFFFFF");accent=Color.parseColor(dark?"#8CA9FF":"#3863EB");
-        getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);getWindow().getDecorView().setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        ink=Aurora.INK;muted=Aurora.MUTED;bg=Aurora.BASE;surface=Aurora.SURFACE;accent=Aurora.ACCENT;Aurora.window(this);
         waitingStorage=saved!=null&&saved.getBoolean("waitingStorage");categoryOpened=saved!=null&&saved.getBoolean("categoryOpened");
         model.updates.observe(this,n->render());
         if(saved==null)begin();
@@ -54,7 +52,7 @@ public final class CleanActivity extends AppCompatActivity {
         permissionSheet();
     }
     private void permissionSheet(){
-        BottomSheetDialog dialog=new BottomSheetDialog(this);sheet=dialog;LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(28));content.setBackgroundColor(surface);
+        BottomSheetDialog dialog=new BottomSheetDialog(this);sheet=dialog;LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(28));content.setBackground(Aurora.glass(this,false));
         content.addView(text("Storage access",26,ink));content.addView(text("Find large files, downloads and duplicates without choosing folders.",14,muted));
         
         content.addView(button("Continue to storage access",true,()->{dialog.dismiss();if(Build.VERSION.SDK_INT>=30){waitingStorage=true;try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}}else requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE},21);}));
@@ -63,8 +61,8 @@ public final class CleanActivity extends AppCompatActivity {
     @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] results){super.onRequestPermissionsResult(code,permissions,results);if(code==21){if(hasStorage())startScan();else render();}}
     private void startScan(){categoryOpened=false;model.category=ReviewRules.Category.ALL;model.sharedStorage=true;model.ownCache=false;model.media=false;model.downloadsOnly=false;model.scan(false);}
     private void scaffold(String heading){
-        page=column();page.setBackgroundColor(bg);page.setPadding(dp(24),dp(12),dp(24),dp(12));page.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(12),dp(24),insets.getSystemWindowInsetBottom()+dp(10));return insets;});
-        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);MaterialButton back=button("‹",false,()->getOnBackPressedDispatcher().onBackPressed());back.setContentDescription("Back");header.addView(back,new LinearLayout.LayoutParams(dp(52),dp(48)));TextView title=text(heading,17,ink);title.setTypeface(null,Typeface.BOLD);header.addView(title);page.addView(header);
+        page=column();page.setBackground(Aurora.background());page.setPadding(dp(24),dp(12),dp(24),dp(12));page.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(12),dp(24),insets.getSystemWindowInsetBottom()+dp(10));return insets;});
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);MaterialButton back=button("‹",false,()->getOnBackPressedDispatcher().onBackPressed());back.setContentDescription("Back");header.addView(back,new LinearLayout.LayoutParams(dp(52),dp(48)));TextView title=text(heading,17,ink);title.setTypeface(null,Typeface.BOLD);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));MaterialButton options=button("⋯",false,()->startActivity(new Intent(this,HomeActivity.class).putExtra("settings",true)));options.setContentDescription("Settings");header.addView(options,new LinearLayout.LayoutParams(dp(48),dp(48)));page.addView(header);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);body=column();scroll.addView(body);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));footer=column();page.addView(footer);setContentView(page);page.requestApplyInsets();page.post(page::requestApplyInsets);
     }
     private void render(){
@@ -102,7 +100,7 @@ public final class CleanActivity extends AppCompatActivity {
     private void selection(){if(sheetSelection!=null){sheetSelection.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);sheetSelection.setText(model.selected.size()+" selected · "+size(ReviewRules.selectedBytes(model.files,model.selected)));}for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+(group.files().size()==1?" file":" files")+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
     private void confirm(){new AlertDialog.Builder(this).setTitle("Clear "+size(ReviewRules.selectedBytes(model.files,model.selected))+"?").setMessage("You selected "+model.selected.size()+" files. Shared-file deletion is permanent. Originals in duplicate groups will be kept.").setNegativeButton("Keep reviewing",null).setPositiveButton("Confirm cleanup",(d,w)->model.delete()).show();}
     private void showGroup(CleanupGroups.Group group){
-        sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackgroundColor(surface);content.setPadding(dp(22),dp(16),dp(22),dp(16));
+        sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackground(Aurora.glass(this,false));content.setPadding(dp(22),dp(16),dp(22),dp(16));
         View handle = new View(this);
         GradientDrawable grip = new GradientDrawable();
         grip.setColor(muted);
@@ -140,7 +138,7 @@ public final class CleanActivity extends AppCompatActivity {
         controls.addView(button("Clear",false,()->{for(var f:adapter.visible)model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));content.addView(sheetSelection);
         }
         content.addView(button("Done",true,()->sheet.dismiss()));
-        GradientDrawable sheetBackground=new GradientDrawable();sheetBackground.setColor(surface);sheetBackground.setCornerRadius(dp(24));content.setBackground(sheetBackground);content.setClipToOutline(true);sheet.setContentView(content,new ViewGroup.LayoutParams(-1,-1));sheet.setOnDismissListener(d->{sheetSelection=null;selection();});sheet.show();android.widget.FrameLayout bottom=sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);if(bottom!=null){bottom.getLayoutParams().height=(int)(getResources().getDisplayMetrics().heightPixels*.85);if(group.files().isEmpty())bottom.getLayoutParams().height=ViewGroup.LayoutParams.WRAP_CONTENT;bottom.requestLayout();sheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);}
+        GradientDrawable sheetBackground=new GradientDrawable();sheetBackground.setColor(surface);sheetBackground.setCornerRadius(dp(24));content.setBackground(Aurora.glass(this,false));content.setClipToOutline(true);sheet.setContentView(content,new ViewGroup.LayoutParams(-1,-1));sheet.setOnDismissListener(d->{sheetSelection=null;selection();});sheet.show();android.widget.FrameLayout bottom=sheet.findViewById(com.google.android.material.R.id.design_bottom_sheet);if(bottom!=null){bottom.getLayoutParams().height=(int)(getResources().getDisplayMetrics().heightPixels*.85);if(group.files().isEmpty())bottom.getLayoutParams().height=ViewGroup.LayoutParams.WRAP_CONTENT;bottom.requestLayout();sheet.getBehavior().setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);}
     }
     private final class FileAdapter extends RecyclerView.Adapter<FileAdapter.Holder>{
         final CleanupGroups.Group group;List<ReviewFile> visible;int sort;FileAdapter(CleanupGroups.Group group){this.group=group;visible=new ArrayList<>(group.files());}
@@ -155,8 +153,8 @@ public final class CleanActivity extends AppCompatActivity {
     private void preview(ReviewFile file){try{Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".files",new java.io.File(java.net.URI.create(file.uri())));String mime=getContentResolver().getType(uri);startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime==null?"*/*":mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){new AlertDialog.Builder(this).setMessage("No preview app is available for this file.").setPositiveButton("Done",null).show();}}
     private LinearLayout column(){LinearLayout result=new LinearLayout(this);result.setOrientation(LinearLayout.VERTICAL);return result;}
     private TextView text(String value,int size,int color){TextView result=new TextView(this);result.setText(value);result.setTextSize(size);result.setTextColor(color);result.setPadding(0,dp(7),0,dp(7));return result;}
-    private MaterialButton button(String label,boolean primary,Runnable action){MaterialButton result=new MaterialButton(this);result.setText(label);result.setAllCaps(false);result.setCornerRadius(dp(18));result.setMinHeight(dp(primary?56:48));result.setTextColor(primary?Color.WHITE:accent);result.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary?Color.rgb(56,99,235):surface));result.setOnClickListener(v->action.run());return result;}
+    private MaterialButton button(String label,boolean primary,Runnable action){MaterialButton result=new MaterialButton(this);result.setText(label);result.setAllCaps(false);result.setCornerRadius(dp(18));result.setMinHeight(dp(primary?56:48));result.setTextColor(primary?Color.WHITE:accent);result.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary?Color.rgb(56,99,235):surface));Aurora.button(result);result.setOnClickListener(v->action.run());return result;}
     private LinearLayout.LayoutParams gap(int top){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(top),0,dp(8));return lp;}
-    private void styleCard(View view){GradientDrawable shape=new GradientDrawable();shape.setColor(surface);shape.setCornerRadius(dp(20));view.setBackground(shape);view.setPadding(dp(18),dp(14),dp(18),dp(14));}
+    private void styleCard(View view){GradientDrawable shape=new GradientDrawable();shape.setColor(surface);shape.setCornerRadius(dp(20));view.setBackground(Aurora.glass(this,false));view.setPadding(dp(18),dp(14),dp(18),dp(14));}
     @Override protected void onDestroy(){if(sheet!=null)sheet.dismiss();previews.shutdownNow();super.onDestroy();}
 }

@@ -27,55 +27,41 @@ public final class HomeActivity extends AppCompatActivity {
     @Override public void onCreate(Bundle state){
         int theme=getSharedPreferences("cleanup",0).getInt("theme",-1);
         applyTheme(theme); super.onCreate(state); draw();
+        if(getIntent().getBooleanExtra("settings",false))settings();
     }
     @Override protected void onResume(){super.onResume(); if(page!=null) draw();if(waitingUsage){waitingUsage=false;loadApps();}}
-    private static void applyTheme(int mode){
-        if(mode==1)AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-        else if(mode==2)AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        else AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
-    }
+    private static void applyTheme(int mode){AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);}
     private void draw(){
-        boolean dark=(getResources().getConfiguration().uiMode&48)==32;
-        ink=Color.parseColor(dark?"#F3F6FF":"#172137");muted=Color.parseColor(dark?"#A7B3C9":"#647087");surface=Color.parseColor(dark?"#192437":"#FFFFFF");bg=Color.parseColor(dark?"#0E1726":"#F3F6FC");
-        getWindow().setStatusBarColor(bg);getWindow().setNavigationBarColor(bg);
-        getWindow().getDecorView().setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(bg);
-        page=column();page.setPadding(dp(24),dp(22),dp(24),dp(24));scroll.addView(page);
-        scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(16),dp(24),insets.getSystemWindowInsetBottom()+dp(20));return insets;});
-        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand=text("✦  Clenzy",26,ink);brand.setTypeface(null,Typeface.BOLD);header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
-        MaterialButton settings=button("",this::settings,false);settings.setIcon(new LineIcon("settings",ink));settings.setIconSize(dp(22));settings.setIconPadding(0);settings.setIconGravity(MaterialButton.ICON_GRAVITY_TEXT_START);settings.setContentDescription("Settings");header.addView(settings,new LinearLayout.LayoutParams(dp(52),dp(48)));page.addView(header);
-        StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes(),used=total-free;
-        FrameLayout ring=new FrameLayout(this);ring.addView(new StorageRing(this,total>0?(float)used/total:0,dark?Color.rgb(44,57,75):Color.rgb(231,235,242),dark?Color.rgb(140,169,255):blue),new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout numbers=column();numbers.setGravity(Gravity.CENTER);TextView amount=text(size(free),38,ink);amount.setTypeface(null,Typeface.BOLD);amount.setGravity(Gravity.CENTER);numbers.addView(amount);TextView available=text("available space",13,muted);available.setGravity(Gravity.CENTER);numbers.addView(available);ring.addView(numbers,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout.LayoutParams ringParams=new LinearLayout.LayoutParams(dp(180),dp(180));ringParams.gravity=Gravity.CENTER;ringParams.setMargins(0,dp(20),0,dp(12));page.addView(ring,ringParams);
-        TextView capacity=text(size(used)+" used  ·  "+size(total)+" total",13,muted);capacity.setGravity(Gravity.CENTER);page.addView(capacity,spaced());
-        MaterialButton start=button("Scan my phone",this::startCleaning,true);start.setMinHeight(dp(58));page.addView(start,new LinearLayout.LayoutParams(-1,-2));
-        MaterialButton analyze=button("Analyze with AI",()->startActivity(new Intent(this,SmartActivity.class)),false);
-        analyze.setStrokeWidth(dp(1));analyze.setStrokeColor(android.content.res.ColorStateList.valueOf(blue));
-        analyze.setMinHeight(dp(54));page.addView(analyze,new LinearLayout.LayoutParams(-1,-2));
-        String[][] shortcuts={{"Videos","Screenshots"},{"Duplicate copies","Downloads"}};
-        for(String[] pair:shortcuts){LinearLayout row=new LinearLayout(this);for(String category:pair){LinearLayout tile=card();tile.setPadding(dp(14),dp(12),dp(14),dp(12));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(category,blue));tile.addView(icon,new LinearLayout.LayoutParams(dp(26),dp(26)));TextView title=text(category,13,ink);tile.addView(title);tile.setContentDescription("Review "+category);tile.setFocusable(true);tile.setOnClickListener(v->startActivity(new Intent(this,CleanActivity.class).putExtra("category",category)));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(dp(4),dp(4),dp(4),dp(4));row.addView(tile,lp);}page.addView(row);}
-        LinearLayout navigation=new LinearLayout(this);navigation.addView(navItem("Home",this::draw),new LinearLayout.LayoutParams(0,-2,1));navigation.addView(navItem("Apps",this::apps),new LinearLayout.LayoutParams(0,-2,1));page.addView(navigation,spaced());
-        for(int n=0;n<navigation.getChildCount();n++)navigation.getChildAt(n).setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));
-        page.removeView(navigation);
-        LinearLayout shell=column();shell.setBackgroundColor(bg);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));shell.addView(navigation);
-        scroll.setOnApplyWindowInsetsListener(null);page.setPadding(dp(24),dp(16),dp(24),dp(10));
-        shell.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});
-        setContentView(shell);shell.requestApplyInsets();
+        ink=Aurora.INK;muted=Aurora.MUTED;surface=Aurora.SURFACE;bg=Aurora.BASE;Aurora.window(this);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackground(Aurora.background());
+        page=column();page.setPadding(dp(24),dp(32),dp(24),dp(24));scroll.addView(page);
+        scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(28),dp(24),insets.getSystemWindowInsetBottom()+dp(24));return insets;});
+        TextView brand=text("C  Clenzy",32,ink);brand.setTypeface(null,Typeface.BOLD);page.addView(brand);
+        page.addView(new Space(this),new LinearLayout.LayoutParams(1,0,1));
+        addScanCard("Scan","Files & storage",false,this::startCleaning);
+        addScanCard("Scan with AI","Photos & videos",true,()->startActivity(new Intent(this,SmartActivity.class)));
+        page.addView(new Space(this),new LinearLayout.LayoutParams(1,0,1));
+        setContentView(scroll);scroll.requestApplyInsets();
+    }
+    private void addScanCard(String title,String subtitle,boolean ai,Runnable action){
+        LinearLayout tile=new LinearLayout(this);tile.setGravity(Gravity.CENTER_VERTICAL);tile.setPadding(dp(24),dp(28),dp(18),dp(28));tile.setBackground(Aurora.glass(this,ai));tile.setMinimumHeight(dp(180));tile.setFocusable(true);tile.setContentDescription(title);tile.setOnClickListener(v->action.run());
+        LinearLayout words=column();TextView name=text(title,28,ink);name.setTypeface(null,Typeface.BOLD);name.setOnClickListener(v->action.run());words.addView(name);words.addView(text(subtitle,15,muted));tile.addView(words,new LinearLayout.LayoutParams(0,-2,1));
+        ImageView icon=new ImageView(this);icon.setImageDrawable(Aurora.symbol(ai));icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);tile.addView(icon,new LinearLayout.LayoutParams(dp(82),dp(82)));
+        LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,-2);layout.setMargins(0,dp(16),0,0);page.addView(tile,layout);
     }
     private LinearLayout navItem(String title,Runnable action){LinearLayout item=column();item.setGravity(Gravity.CENTER);item.setPadding(0,dp(10),0,dp(10));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(title,blue));item.addView(icon,new LinearLayout.LayoutParams(dp(23),dp(23)));TextView label=text(title,11,muted);label.setGravity(Gravity.CENTER);item.addView(label);item.setContentDescription(title);item.setFocusable(true);item.setOnClickListener(v->action.run());return item;}
     private void startCleaning(){startActivity(new Intent(this,CleanActivity.class));}
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
     private void settings(){
-        new AlertDialog.Builder(this).setTitle("Settings").setItems(new String[]{"Theme","Cleanup history","Privacy & access","System storage cleanup","About Clenzy","Photos & videos","Clenzy cache"},(d,w)->{
-            if(w==0)new AlertDialog.Builder(this).setTitle("Theme").setSingleChoiceItems(new String[]{"System","Light","Dark"},getSharedPreferences("cleanup",0).getInt("theme",-1)==-1?0:getSharedPreferences("cleanup",0).getInt("theme",-1)==1?1:2,(dialog,index)->{int mode=index==0?-1:index==1?1:2;getSharedPreferences("cleanup",0).edit().putInt("theme",mode).apply();dialog.dismiss();applyTheme(mode);}).show();
+        new AlertDialog.Builder(this).setTitle("Settings").setItems(new String[]{"Aurora appearance","Cleanup history","Privacy & access","System storage cleanup","About Clenzy","Photos & videos","Clenzy cache","Apps"},(d,w)->{
+            if(w==0)message("Aurora","Midnight colours, cyan accents and violet glass throughout Clenzy.");
+            if(w==7)apps();
             if(w==1)history();
             if(w==2)message("Private by design","Files stay on your device. Folder access is limited to locations you choose. Media access can be partial. No advertising, tracking, root or Accessibility service. Shared storage scanning uses optional all-files access. Trash may retain storage until emptied in the gallery.");
             if(w==3){try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}}
             if(w==5)open("photos");
             if(w==6)open("cache");
-            if(w==4)message("Clenzy 2.0.1","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
+            if(w==4)message("Clenzy 2.1.0","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy. No speed or battery claims.");
         }).show();
     }
     private void history(){
@@ -135,8 +121,8 @@ public final class HomeActivity extends AppCompatActivity {
     private void message(String title,String body){new AlertDialog.Builder(this).setTitle(title).setMessage(body).setPositiveButton("Done",null).show();}
     private LinearLayout column(){LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.VERTICAL);return v;}
     private TextView text(String value,int size,int color){TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(color);v.setPadding(0,dp(7),0,dp(7));return v;}
-    private LinearLayout card(){LinearLayout v=column();GradientDrawable shape=new GradientDrawable();shape.setColor(surface);shape.setCornerRadius(dp(24));v.setBackground(shape);v.setPadding(dp(22),dp(18),dp(22),dp(18));return v;}
+    private LinearLayout card(){LinearLayout v=column();GradientDrawable shape=new GradientDrawable();shape.setColor(surface);shape.setCornerRadius(dp(24));v.setBackground(Aurora.glass(this,false));v.setPadding(dp(22),dp(18),dp(22),dp(18));return v;}
     private LinearLayout.LayoutParams spaced(){LinearLayout.LayoutParams v=new LinearLayout.LayoutParams(-1,-2);v.setMargins(0,dp(18),0,dp(18));return v;}
-    private MaterialButton button(String text,Runnable action,boolean primary){MaterialButton b=new MaterialButton(this);b.setText(text);b.setAllCaps(false);b.setCornerRadius(dp(20));b.setMinHeight(dp(48));b.setTextColor(primary?Color.WHITE:((getResources().getConfiguration().uiMode&48)==32?Color.rgb(140,176,255):blue));b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary?blue:surface));b.setOnClickListener(v->action.run());return b;}
+    private MaterialButton button(String text,Runnable action,boolean primary){MaterialButton b=new MaterialButton(this);b.setText(text);b.setAllCaps(false);b.setCornerRadius(dp(20));b.setMinHeight(dp(48));b.setTextColor(primary?Color.WHITE:((getResources().getConfiguration().uiMode&48)==32?Color.rgb(140,176,255):blue));b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary?blue:surface));Aurora.button(b);b.setOnClickListener(v->action.run());return b;}
     private String size(long bytes){return Formatter.formatFileSize(this,bytes);}
 }

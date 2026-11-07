@@ -36,12 +36,10 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        boolean dark=(getResources().getConfiguration().uiMode&48)==32;
-        mint=Color.parseColor(dark?"#679AFF":"#3268E8");muted=Color.parseColor(dark?"#A7B3C9":"#647087");
-        ink=Color.parseColor(dark?"#F3F6FF":"#172137");background=Color.parseColor(dark?"#0E1726":"#F3F6FC");cardColor=Color.parseColor(dark?"#192437":"#FFFFFF");
+        mint=Aurora.ACCENT;muted=Aurora.MUTED;ink=Aurora.INK;background=Aurora.BASE;cardColor=Aurora.SURFACE;Aurora.window(this);
         model = new ViewModelProvider(this).get(CleanupViewModel.class); tree = model.tree;
         LinearLayout page = column(); page.setPadding(dp(22), dp(20), dp(22), dp(16));
-        page.setBackground(new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{background,background}));
+        page.setBackground(Aurora.background());
         page.setOnApplyWindowInsetsListener((v, insets) -> { v.setPadding(dp(22), insets.getSystemWindowInsetTop()+dp(12), dp(22), insets.getSystemWindowInsetBottom()+dp(12)); return insets; });
         TextView brand = label("✦  C L E N Z Y", 14, mint); brand.setTypeface(null, Typeface.BOLD); page.addView(brand);
         TextView title = label("Cleanup ready", 30, ink); title.setTypeface(null, Typeface.BOLD); page.addView(title);
@@ -154,7 +152,7 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
             .setNegativeButton("Cancel", null).setPositiveButton("Continue", (d,w) -> model.delete()).show();
     }
     private void showResults() {
-        LinearLayout result=column();result.setPadding(dp(28),dp(32),dp(28),dp(24));result.setBackgroundColor(background);
+        LinearLayout result=column();result.setPadding(dp(28),dp(32),dp(28),dp(24));result.setBackground(Aurora.background());
         result.addView(label("✓",48,mint));result.addView(label("CLEANING COMPLETE",26,ink));
         result.addView(label(model.movedToTrash ? model.removedFiles+" items moved to Trash" : bytes(model.recoveredBytes)+" successfully deleted",30,ink));
         result.addView(label(model.removedFiles+(model.movedToTrash?" items trashed · ":" files removed · ")+model.skippedFiles+" skipped or unavailable",16,muted));
@@ -222,8 +220,8 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     }
     private LinearLayout column() { LinearLayout v = new LinearLayout(this); v.setOrientation(LinearLayout.VERTICAL); return v; }
     private TextView label(String text, int size, int color) { TextView v = new TextView(this); v.setText(text); v.setTextSize(size); v.setTextColor(color); v.setPadding(0,dp(5),0,dp(5)); return v; }
-    private Button button(String title, Runnable action) { Button v = new com.google.android.material.button.MaterialButton(this); v.setText(title); v.setAllCaps(false); v.setTextColor(ink); v.setBackgroundTintList(android.content.res.ColorStateList.valueOf(cardColor)); v.setOnClickListener(w -> action.run()); return v; }
-    private void styleCard(View v) { GradientDrawable bg = new GradientDrawable(); bg.setColor(cardColor); bg.setCornerRadius(dp(22)); bg.setStroke(dp(1),Color.argb(40,100,130,190)); v.setBackground(bg); v.setPadding(dp(16),dp(12),dp(16),dp(12)); }
+    private Button button(String title, Runnable action) { Button v = new com.google.android.material.button.MaterialButton(this); v.setText(title); v.setAllCaps(false); v.setTextColor(ink); v.setBackgroundTintList(android.content.res.ColorStateList.valueOf(cardColor)); Aurora.button((com.google.android.material.button.MaterialButton)v);v.setOnClickListener(w -> action.run()); return v; }
+    private void styleCard(View v) { GradientDrawable bg = new GradientDrawable(); bg.setColor(cardColor); bg.setCornerRadius(dp(22)); bg.setStroke(dp(1),Color.argb(40,100,130,190)); v.setBackground(Aurora.glass(this,false)); v.setPadding(dp(16),dp(12),dp(16),dp(12)); }
     private LinearLayout.LayoutParams spaced() { LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1,-2); p.setMargins(0,dp(14),0,dp(14)); return p; }
     private final class ReviewAdapter extends RecyclerView.Adapter<ReviewAdapter.Holder> {
         List<ReviewFile> entries = List.of();

@@ -15,7 +15,7 @@ public class HomeFlowTest {
  private TextView find(View view,String text){if(view instanceof TextView && text.equals(((TextView)view).getText().toString()))return (TextView)view;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int n=0;n<group.getChildCount();n++){TextView result=find(group.getChildAt(n),text);if(result!=null)return result;}}return null;}
  @Test public void home_primary_action_opens_contextual_cleanup_choice(){
   try(var scenario=ActivityScenario.launch(HomeActivity.class)){
-   scenario.onActivity(activity->{TextView start=find(activity.getWindow().getDecorView(),"Scan my phone");assertNotNull(start);start.performClick();});
+   scenario.onActivity(activity->{TextView start=find(activity.getWindow().getDecorView(),"Scan");assertNotNull(start);start.performClick();});
    UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
    if(!android.os.Environment.isExternalStorageManager())assertTrue(device.wait(Until.hasObject(By.text("Storage access")),5000));else assertTrue(device.wait(Until.hasObject(By.text("Your cleanup")),15000));device.pressBack();
   }
@@ -45,7 +45,7 @@ public class HomeFlowTest {
     try(var scenario=ActivityScenario.launch(HomeActivity.class)){
      InstrumentationRegistry.getInstrumentation().waitForIdleSync();
      scenario.onActivity(activity->{
-      View view=activity.getWindow().getDecorView();assertNotNull(find(view,"Scan my phone"));for(String category:new String[]{"Videos","Screenshots","Duplicate copies","Downloads"})assertNotNull(find(view,category));
+      View view=activity.getWindow().getDecorView();assertNotNull(find(view,"Scan"));assertNotNull(find(view,"Scan with AI"));for(String category:new String[]{"Videos","Screenshots","Duplicate copies","Downloads"})assertNull(find(view,category));
       Bitmap bitmap=Bitmap.createBitmap(view.getWidth(),view.getHeight(),Bitmap.Config.ARGB_8888);view.draw(new Canvas(bitmap));
       try(var output=new FileOutputStream(new File(activity.getExternalFilesDir(null),mode==1?"Clenzy-Android-light.png":"Clenzy-Android-dark.png"))){bitmap.compress(Bitmap.CompressFormat.PNG,100,output);}catch(IOException e){throw new AssertionError(e);}finally{bitmap.recycle();}
      });

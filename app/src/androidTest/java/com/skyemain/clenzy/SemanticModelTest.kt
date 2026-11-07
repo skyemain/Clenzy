@@ -29,7 +29,14 @@ class SemanticModelTest {
                     try{
                         resolver.openOutputStream(uri).use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,requireNotNull(it))}
                         val medium=Medium(uri.toString(),file,1,100,bitmap.width,bitmap.height,0,"WhatsApp",false,0,0)
+                        val start=android.os.SystemClock.elapsedRealtime()
                         val insight=SmartVision(context).use{it.analyze(medium){}}
+                        val parallelMs=android.os.SystemClock.elapsedRealtime()-start
+                        val serialStart=android.os.SystemClock.elapsedRealtime()
+                        val serial=SmartVision(context,false).use{it.analyze(medium){}}
+                        val serialMs=android.os.SystemClock.elapsedRealtime()-serialStart
+                        android.util.Log.i("ClenzyBenchmark","$file serial=$serialMs ms overlapped=$parallelMs ms")
+                        assertEquals(serial,insight)
                         assertTrue("Personal media must be protected: "+file+" "+insight.findings,insight.findings.all{it.protected})
                     }finally{resolver.delete(uri,null,null)}
                 }finally{bitmap.recycle()}
