@@ -47,9 +47,6 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
         return found
     }
     fun cache(m:Medium,i:Insight,scanId:String?=null){writableDatabase.execSQL("INSERT OR REPLACE INTO cache(uri,freshness,analysis,scan_id) VALUES(?,?,?,?)",arrayOf(m.uri,m.freshness+m.analysisRevision,i.encode(),scanId))}
-    fun retain(group:String,m:Medium){
-        writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(group,"keeper",m.uri))
-    }
     fun choice(m:Medium,value:String){writableDatabase.execSQL("INSERT OR REPLACE INTO choices VALUES(?,?,?)",arrayOf(m.uri,m.freshness,value))}
     fun save(run:String,all:Map<Medium,Insight>){
         val db=writableDatabase;db.beginTransaction()
@@ -76,19 +73,14 @@ internal class SmartStore(context:Context):SQLiteOpenHelper(context,"smart-media
         }}
         readableDatabase.rawQuery("SELECT uri,freshness,choice FROM choices",null).use{c->
             val byUri=out.keys.associateBy{it.uri};while(c.moveToNext()){
-                if(c.getString(1)=="keeper"){
-                    val group=c.getString(0);val chosen=byUri[c.getString(2)]?:continue
-                    if(out[chosen]?.findings?.any{it.group==group}!=true)continue
-                    for((file,insight) in out.entries){
-                        if(insight.findings.none{it.group==group})continue
-                        out[file]=insight.copy(findings=insight.findings.map{if(it.group!=group)it else it.copy(protected=file==chosen,reason=if(file==chosen)"Keeper · chosen by you" else "Matches "+chosen.name)})
-                    }
-                    continue
-                }
+                if(c.getString(2)!="Review later")continue
                 val m=byUri[c.getString(0)]?:continue;if(m.freshness!=c.getString(1))continue
-                val i=out.getValue(m);out[m]=i.copy(findings=listOf(Finding(if(c.getString(2)=="Review later")"Review later" else "Protected",c.getString(2),true)))
+                val i=out.getValue(m);out[m]=i.copy(findings=listOf(Finding("Review later","Saved for later")))
             }
         }
-        return out
+        return out.mapValues{(_,insight)->insight.copy(findings=insight.findings.map{
+            if(it.category=="Protected")Finding("Review manually","Photo for review",group=it.group)
+            else it.copy(protected=false)
+        }.distinctBy{it.category to it.group})}
     }
 }

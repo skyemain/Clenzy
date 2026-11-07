@@ -11,8 +11,9 @@ import kotlin.math.abs
 
 class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p){
     private val resolver=context.contentResolver
-    private suspend fun progress(stage:String,n:Int=0,images:Int=0,videos:Int=0){
-        setProgress(workDataOf("stage" to stage,"total" to n,"images" to images,"videos" to videos))
+    private suspend fun progress(stage:String,n:Int=0,images:Int=0,videos:Int=0,eta:Long=-1){
+        setProgress(workDataOf("stage" to stage,"total" to n,"images" to images,"videos" to videos,"eta" to eta))
+        setForeground(ScanNotifications.foreground(applicationContext,id,stage,images+videos,n))
     }
     override suspend fun doWork():Result=withContext(Dispatchers.IO){
         val job=currentCoroutineContext()
@@ -41,13 +42,15 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
             val sizes=all.groupingBy{it.size}.eachCount();val results=linkedMapOf<Medium,Insight>();var photos=0;var videos=0;var last=0L
             SmartStore(applicationContext).use{db->SmartVision(applicationContext).use{vision->
                 val cachedItems=db.matchingCache(all,id.toString())
+                var measured=0;var analysisMillis=0L
                 progress("Checking accessible photos and videos",all.size)
                 for(m in all){
                     job.ensureActive();val cached=cachedItems.remove(m.uri)
                     // Resume from this run's persisted analyses before the WorkManager time limit.
                     if(cached==null && android.os.SystemClock.elapsedRealtime()-started>7*60_000L)return@withContext Result.retry()
+                    val itemStarted=android.os.SystemClock.elapsedRealtime()
                     var i=cached?.takeIf{it.complete}?:try{vision.analyze(m){job.ensureActive()}}catch(e:Exception){
-                        job.ensureActive();Insight(listOf(Finding("Review manually","Analysis unavailable · keep for manual review",true)),emptyList(),0.0,complete=false)
+                        job.ensureActive();Insight(listOf(Finding("Review manually","Analysis unavailable · review manually",false)),emptyList(),0.0,complete=false)
                     }
                     if(i.complete && i.digest.isEmpty() && m.size>0 && sizes[m.size]!!>1){
                         val digest=try{val sha=MessageDigest.getInstance("SHA-256");resolver.openInputStream(Uri.parse(m.uri))?.use{stream->
@@ -56,24 +59,25 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
                         }.orEmpty()}catch(_:java.io.IOException){""}
                         i=i.copy(digest=digest)
                     }
+                    if(cached==null){measured++;analysisMillis+=android.os.SystemClock.elapsedRealtime()-itemStarted}
                     results[m]=i;if(i!=cached)db.cache(m,i,id.toString())
                     if(m.video)videos++ else photos++
-                    if(android.os.SystemClock.elapsedRealtime()-last>900){progress("Analyzing media on this device",all.size,photos,videos);last=android.os.SystemClock.elapsedRealtime()}
+                    if(android.os.SystemClock.elapsedRealtime()-last>900){progress("Analyzing media on this device",all.size,photos,videos,if(measured>=5)analysisMillis/measured*(all.size-photos-videos)/1000 else -1);last=android.os.SystemClock.elapsedRealtime()}
                 }
             }
             progress("Grouping matches",all.size,photos,videos)
             fun group(items:List<Medium>,category:String){
                 if(items.size<2)return
-                val ranked=items.sortedWith(compareByDescending<Medium>{results.getValue(it).findings.any{f->f.protected}}.thenByDescending{it.width.toLong()*it.height}.thenByDescending{results.getValue(it).sharp}.thenBy{it.stamp})
+                val ranked=items.sortedWith(compareByDescending<Medium>{it.width.toLong()*it.height}.thenByDescending{results.getValue(it).sharp}.thenBy{it.stamp})
                 ranked.forEachIndexed{index,m->
                     val i=results.getValue(m)
-                    if(!i.findings.any{it.protected})results[m]=i.copy(findings=i.findings+Finding(category,if(index==0)"Keeper · "+m.name else "Matches "+ranked.first().name,index==0,category+"/"+ranked.first().uri))
+                    results[m]=i.copy(findings=i.findings+Finding(category,"Similar content · compare before selecting",false,category+"/"+ranked.first().uri))
                 }
             }
             results.keys.filter{results.getValue(it).digest.isNotEmpty()}.groupBy{results.getValue(it).digest}.values.forEach{group(it,if(it.first().video)"Duplicate videos" else "Duplicate photos")}
             val buckets=HashMap<String,MutableList<Medium>>();val matches=linkedMapOf<Medium,MutableList<Medium>>()
             for((m,i) in results){
-                job.ensureActive();if(i.frames.isEmpty()||i.findings.any{it.protected}||i.frames.any{java.lang.Long.bitCount(it) !in 5..59})continue
+                job.ensureActive();if(i.frames.isEmpty()||i.frames.any{java.lang.Long.bitCount(it) !in 5..59})continue
                 val h=i.frames.first();val keys=(0..4).map{"${m.video}/$it/${(h ushr (it*13)) and 4095}"}
                 val match=keys.asSequence().flatMap{buckets[it].orEmpty().asSequence()}.distinct().firstOrNull{p->
                     val other=results.getValue(p)

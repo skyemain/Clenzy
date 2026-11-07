@@ -33,6 +33,11 @@ public class CleanJourneyTest {
     var settings=device.findObject(By.desc("Settings"));assertNotNull(settings);settings.click();
     assertTrue(device.wait(Until.hasObject(By.text("Cleanup history")),5000));
     assertTrue(device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-Android-settings.png")));
+    assertFalse(device.hasObject(By.text("Apps")));assertFalse(device.hasObject(By.text("Photos & videos")));assertTrue(device.hasObject(By.text("DEVICE STORAGE")));
+    device.findObject(By.text("Privacy & access")).click();
+    assertTrue(device.wait(Until.hasObject(By.text("Shared files access")),5000));
+    assertTrue(device.hasObject(By.textStartsWith("Shared files: allowed")));
+    device.findObject(By.text("Done")).click();
     device.pressBack();assertTrue(device.wait(Until.hasObject(By.text("Your cleanup")),5000));
     var duplicates=device.wait(Until.findObject(By.text("Duplicate copies")),5000);assertNotNull(duplicates);duplicates.click();
     var select=device.wait(Until.findObject(By.text("Select extra copies")),5000);assertNotNull(select);select.click();

@@ -25,6 +25,21 @@ internal object ScanNotifications {
         return manager.areNotificationsEnabled() && manager.getNotificationChannel(channel).importance != NotificationManager.IMPORTANCE_NONE
     }
 
+    fun foreground(context:Context,id:java.util.UUID,stage:String,done:Int,total:Int):androidx.work.ForegroundInfo {
+        val manager=ensureChannel(context)
+        val progressChannel="ai_scan_progress"
+        manager.createNotificationChannel(NotificationChannel(progressChannel,"AI scan progress",NotificationManager.IMPORTANCE_LOW))
+        val open=PendingIntent.getActivity(context,1947,Intent(context,SmartActivity::class.java),PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notice=Notification.Builder(context,progressChannel)
+            .setSmallIcon(android.R.drawable.ic_menu_gallery).setContentTitle("Clenzy · AI scan")
+            .setContentText(if(total>0)"$done of $total · $stage" else stage)
+            .setProgress(total.coerceAtLeast(1),done,total==0).setOngoing(true).setOnlyAlertOnce(true)
+            .setVisibility(Notification.VISIBILITY_PRIVATE).setContentIntent(open)
+            .addAction(Notification.Action.Builder(null,"Stop",androidx.work.WorkManager.getInstance(context).createCancelPendingIntent(id)).build()).build()
+        return if(Build.VERSION.SDK_INT>=29)androidx.work.ForegroundInfo(1947,notice,android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            else androidx.work.ForegroundInfo(1947,notice)
+    }
+
     fun completed(context: Context) {
         if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         if (!enabled(context)) return

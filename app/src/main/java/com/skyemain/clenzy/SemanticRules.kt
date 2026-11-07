@@ -3,19 +3,19 @@ package com.skyemain.clenzy
 import java.util.Locale
 
 internal object SemanticRules {
-    fun mustProtectDocument(ocr:String,code:Boolean):Boolean = code || SmartRules.important.containsMatchIn(ocr.lowercase(Locale.ROOT)) ||
+    fun isDocumentEvidence(ocr:String,code:Boolean):Boolean = code || SmartRules.important.containsMatchIn(ocr.lowercase(Locale.ROOT)) ||
         Regex("रसीद|चालान|भुगतान|खाता संख्या|आधार|पासपोर्ट|चिकित्सा|आरक्षण").containsMatchIn(ocr)
 
     fun assess(m:Medium,age:Long,ocr:String,face:Boolean,code:Boolean,labels:Set<String>,quality:String?,matches:List<SemanticMatch>):List<Finding>{
         val text=ocr.lowercase(Locale.ROOT)
         val reliable=matches.filter{it.reliable}
         val topics=reliable.map{it.label}.toSet()
-        val document=mustProtectDocument(ocr,code) || topics.any{it in setOf("identity","receipt","document")}
-        if(document)return listOf(Finding("Protected",if(code)"Contains a QR code or barcode" else "Document or payment information detected",true))
+        val document=isDocumentEvidence(ocr,code) || topics.any{it in setOf("identity","receipt","document")}
+        if(document)return listOf(Finding("Review manually",if(code)"Contains a QR code or barcode" else "Document or payment information detected",false))
         val personal=matches.any{it.label in setOf("people","pet","landscape","food") && it.score>=0.04}
-        if(personal)return listOf(Finding("Protected","Visual model suggests personal memories or everyday photographs",true))
+        if(personal)return listOf(Finding("Review manually","Visual model suggests personal memories or everyday photographs",false))
         val graphical=topics.any{it in setOf("promotion","greeting","meme","event","shopping","screen","chat")}
-        if(face && !graphical)return listOf(Finding("Protected","Person detected without a clear graphic or screen context",true))
+        if(face && !graphical)return listOf(Finding("Review manually","Person detected without a clear graphic or screen context",false))
         val corroborated=if(m.video) reliable.groupingBy{it.label}.eachCount().filterValues{it>=2}.keys else topics
         val result=mutableListOf<Finding>()
         val screenText=Regex("""\b(taskbar|task manager|file explorer|new tab|localhost|recycle bin|command prompt)\b""").findAll(text).map{it.value}.distinct().count()>=2
@@ -33,7 +33,7 @@ internal object SemanticRules {
         if(m.source=="Screenshot")result+=Finding("Screenshots","Screenshot origin · manual review")
         // Uncertain predictions are explicitly reviewable and never automatically selected.
         if(result.isEmpty()){
-            if(m.source=="Camera"||face)return listOf(Finding("Protected","Possible personal original · content uncertain",true))
+            if(m.source=="Camera"||face)return listOf(Finding("Review manually","Possible personal original · content uncertain",false))
             result+=Finding("Review manually","Visual evidence is inconclusive")
         }
         if(quality!=null && !m.video && !face)result+=Finding("Photo quality",quality)

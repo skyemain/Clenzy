@@ -13,19 +13,15 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SmartCleanTest {
-    @Test fun lockSurvivesReopenAndFiltersAlternateCleanupUris(){
+    @Test fun oldProtectedResultsRemainReviewable(){
         val context=ApplicationProvider.getApplicationContext<Context>()
-        val m=Medium("content://media/external_primary/images/media/99999999","unique-lock-test.jpg",2,123,20,20,0,"Camera",false,0,0)
-        val direct=ReviewFile(m.uri,m.name,m.size,2,null)
-        val local=ReviewFile("file:///storage/emulated/0/DCIM/"+m.name,m.name,m.size,2,null)
-        val other=ReviewFile("file:///storage/emulated/0/DCIM/other.jpg","other.jpg",123,2,null)
-        val locks=MediaLocks(context)
-        try{
-            locks.set(m,true)
-            assertTrue(MediaLocks(context).contains(m.uri))
-            assertEquals(listOf(other),locks.unlocked(listOf(direct,local,other)))
-        }finally{locks.set(m,false)}
-        assertEquals(listOf(direct,local),locks.unlocked(listOf(direct,local)))
+        val m=Medium("content://test/old","old.jpg",2,123,20,20,0,"Camera",false,0,0)
+        SmartStore(context).use{db->
+            db.save("migration-test",mapOf(m to Insight(listOf(Finding("Protected","Legacy",true)),emptyList(),0.0)))
+            val findings=db.results("migration-test").getValue(m).findings
+            assertEquals("Review manually",findings.single().category)
+            assertFalse(findings.single().protected)
+        }
     }
     @Test fun actualBundledInferenceAndCacheInvalidation(){
         val context=ApplicationProvider.getApplicationContext<Context>()
@@ -41,7 +37,7 @@ class SmartCleanTest {
             resolver.openOutputStream(uri).use{assertTrue(image.compress(Bitmap.CompressFormat.PNG,100,requireNotNull(it)))};image.recycle()
             val m=Medium(uri.toString(),"receipt.png",1,300,800,600,0,"WhatsApp",false,0,0)
             val finding=SmartVision(context).use{it.analyze(m){}}
-            assertTrue(finding.findings.any{it.protected});assertEquals(1,finding.frames.size)
+            assertTrue(finding.findings.all{!it.protected && it.category=="Review manually"});assertEquals(1,finding.frames.size)
             SmartStore(context).use{db->db.cache(m,finding,"first-run");assertTrue(db.matchingCache(listOf(m),"new-run").isEmpty());assertEquals(finding,db.matchingCache(listOf(m),"first-run")[m.uri]);assertEquals(finding,db.cached(m));assertNull(db.cached(m.copy(stamp=2)));assertEquals(finding,db.matchingCache(listOf(m))[m.uri]);assertTrue(db.matchingCache(listOf(m.copy(stamp=2))).isEmpty())}
         }finally{resolver.delete(uri,null,null)}
     }

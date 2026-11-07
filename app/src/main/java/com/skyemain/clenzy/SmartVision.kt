@@ -75,7 +75,7 @@ internal class SmartVision(val context:Context, private val parallel:Boolean=tru
                     words.append(' ').append(Tasks.await(latin).text).append(' ').append(Tasks.await(hindi).text)
                     qr=qr || Tasks.await(codes).isNotEmpty()
                     person=person || Tasks.await(detectedFaces).isNotEmpty()
-                    if(!SemanticRules.mustProtectDocument(words.toString(),qr)){
+                    if(!SemanticRules.isDocumentEvidence(words.toString(),qr)){
                         check();semanticUsed=true;semantics+=semantic.classify(bitmap)
                     }
                     check()

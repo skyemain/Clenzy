@@ -21,8 +21,24 @@ public final class Aurora {
         }
         @Override public void setAlpha(int a){} @Override public void setColorFilter(ColorFilter f){} @Override public int getOpacity(){return PixelFormat.OPAQUE;}
     };}
-    public static GradientDrawable glass(Context c,boolean ai){GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,ai?new int[]{0xe62a426f,0xe633255c,0xee111d39}:new int[]{0xe61a5268,0xe620355b,0xee15213c});d.setCornerRadius(dp(c,28));d.setStroke(dp(c,1),ai?0x887f8eff:0x8866dce9);return d;}
-    public static void button(MaterialButton b){b.setAllCaps(false);b.setCornerRadius(dp(b.getContext(),18));b.setMinHeight(dp(b.getContext(),48));b.setTextColor(INK);b.setBackgroundTintList(ColorStateList.valueOf(SURFACE));b.setStrokeWidth(dp(b.getContext(),1));b.setStrokeColor(ColorStateList.valueOf(0xff41567c));b.setRippleColor(ColorStateList.valueOf(0x4477e8ff));}
+    public static Drawable glass(Context context,boolean ai){return new Drawable(){
+        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        @Override public void draw(Canvas canvas){
+            RectF r=new RectF(getBounds());r.inset(1,1);float radius=dp(context,32);
+            p.setStyle(Paint.Style.FILL);p.setShader(new LinearGradient(r.left,r.top,r.right,r.bottom,
+                ai?new int[]{0x664f5996,0x38352e68,0x88202b4a}:new int[]{0x665a9eac,0x382e5074,0x88182640},null,Shader.TileMode.CLAMP));
+            canvas.drawRoundRect(r,radius,radius,p);
+            p.setShader(new LinearGradient(r.left,r.top,r.left,r.bottom,new int[]{0x22ffffff,0x00ffffff},new float[]{0,0.55f},Shader.TileMode.CLAMP));canvas.drawRoundRect(r,radius,radius,p);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(context,1));p.setShader(new LinearGradient(r.left,r.top,r.right,r.bottom,new int[]{0x99d1faff,0x225c7ba8,0x556c92c4},null,Shader.TileMode.CLAMP));canvas.drawRoundRect(r,radius,radius,p);p.setShader(null);
+        }
+        @Override public void getOutline(Outline outline){outline.setRoundRect(getBounds(),dp(context,32));}
+        @Override public void setAlpha(int a){} @Override public void setColorFilter(ColorFilter f){} @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+    };}
+    public static void button(MaterialButton b){
+        b.setAllCaps(false);b.setMinHeight(dp(b.getContext(),48));b.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{MUTED,INK}));
+        b.setBackgroundTintList(null);b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x4477e8ff),glass(b.getContext(),false),null));
+        b.setPadding(dp(b.getContext(),12),dp(b.getContext(),8),dp(b.getContext(),12),dp(b.getContext(),8));
+    }
     public static android.widget.ImageButton iconButton(Context c,String icon,String description,Runnable action){
         android.widget.ImageButton b=new android.widget.ImageButton(c);b.setImageDrawable(new LineIcon(icon,INK));b.setContentDescription(description);b.setPadding(dp(c,12),dp(c,12),dp(c,12),dp(c,12));b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
         b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x3377e8ff),null,null));b.setOnClickListener(v->action.run());return b;

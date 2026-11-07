@@ -31,7 +31,6 @@ class SmartActivity:ComponentActivity(){
         override fun sizeOf(key:String,value:android.graphics.Bitmap)=value.allocationByteCount
     }
     private lateinit var page:LinearLayout
-    private val locks by lazy{MediaLocks(this)}
     private val manager by lazy{WorkManager.getInstance(this)}
     private var results:Map<Medium,Insight> = emptyMap()
     private val selected=linkedSetOf<Medium>()
@@ -78,7 +77,7 @@ class SmartActivity:ComponentActivity(){
         setContentView(page)
         ViewCompat.setOnApplyWindowInsetsListener(page){view,insets->
             val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding((if(edgeToEdge)0 else dp(20))+bars.left,dp(16)+bars.top,(if(edgeToEdge)0 else dp(20))+bars.right,dp(12)+bars.bottom)
+            view.setPadding((if(edgeToEdge)0 else dp(10))+bars.left,dp(16)+bars.top,(if(edgeToEdge)0 else dp(10))+bars.right,dp(12)+bars.bottom)
             insets
         }
         label(title,29).apply{setTypeface(null,Typeface.BOLD);if(edgeToEdge)setPadding(dp(12),dp(5),dp(12),dp(7))}
@@ -109,8 +108,22 @@ class SmartActivity:ComponentActivity(){
                 }
                 WorkInfo.State.FAILED,WorkInfo.State.CANCELLED->{landing();label(work.outputData.getString("error")?:"Scan stopped. Completed analysis can be reused.")}
                 null->if(getPreferences(0).getString("run","")==id.toString()){screen("Preparing media scan");button("Restart scan",this::rescan)}else landing()
-                else->{screen("Analyzing media");page.addView(ProgressBar(this));label(work.progress.getString("stage")?:"Preparing scan");val n=work.progress.getInt("total",0)
-                    if(n>0)label("$n discovered · ${work.progress.getInt("images",0)} photos · ${work.progress.getInt("videos",0)} videos")
+                else->{screen("Analyzing media")
+                    val n=work.progress.getInt("total",0)
+                    val done=work.progress.getInt("images",0)+work.progress.getInt("videos",0)
+                    val grouping=work.progress.getString("stage")=="Grouping matches"
+                    label(if(n>0)"${if(grouping)99 else (done*100/n).coerceAtMost(99)}%" else "Preparing",44)
+                    val bar=ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal).apply{
+                        max=100;isIndeterminate=n==0;progress=if(n>0)(done*100/n).coerceAtMost(99) else 0
+                        progressTintList=android.content.res.ColorStateList.valueOf(Aurora.ACCENT)
+                    }
+                    page.addView(bar,LinearLayout.LayoutParams(-1,dp(8)))
+                    label(work.progress.getString("stage")?:"Preparing scan")
+                    if(n>0)label("$done of $n photos & videos",16)
+                    val eta=work.progress.getLong("eta",-1)
+                    if(eta>=0 && !grouping)label(if(eta<60)"Estimated: less than a minute left" else "Estimated: ${(eta+59)/60} min left",14)
+                    else if(!grouping)label("Estimating time…",14)
+                    label("You can leave this screen. We’ll notify you when it’s ready.",14)
                     button("Back to Home",this::homeDuringScan)
                     if(!ScanNotifications.enabled(this))button("Enable completion alerts"){
                         startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,packageName))
@@ -120,15 +133,14 @@ class SmartActivity:ComponentActivity(){
             }
         }
     }
-    private fun protected(m:Medium)=locks.contains(m.uri)
     private fun dashboard(){
         category=null;screen("AI Smart Clean")
-        val candidates=results.filter{(m,i)->!protected(m)&&i.findings.any{it.category!="Review manually" && it.category!="Protected"}}.keys
+        val candidates=results.filter{(m,i)->i.findings.any{it.category!="Review manually"}}.keys
         val eligible=candidates.toSet()
         val grouped=linkedMapOf<String,MutableList<Medium>>()
         for((item,insight) in results){
             for(finding in insight.findings.distinctBy{it.category}){
-                if(finding.category!="Protected")grouped.getOrPut(finding.category){mutableListOf()}.add(item)
+                grouped.getOrPut(finding.category){mutableListOf()}.add(item)
             }
         }
         val hero=LinearLayout(this).apply{
@@ -156,11 +168,11 @@ class SmartActivity:ComponentActivity(){
                     setOnClickListener{category=cat;filter="All";review()}
                 }
                 val image=ImageView(this).apply{scaleType=ImageView.ScaleType.CENTER_CROP;setBackgroundColor(0xff405d52.toInt());setImageResource(android.R.drawable.ic_menu_gallery)}
-                card.addView(image,LinearLayout.LayoutParams(-1,dp(80)));thumbLoader(image,members.first())
-                val name=TextView(this).apply{text=cat;textSize=16f;setTypeface(null,Typeface.BOLD);setPadding(dp(10),dp(6),dp(10),0)}
+                card.addView(image,LinearLayout.LayoutParams(-1,dp(132)));thumbLoader(image,members.first())
+                val name=TextView(this).apply{text=cat;textSize=16f;setTypeface(null,Typeface.BOLD);setPadding(dp(14),dp(10),dp(14),0)}
                 card.addView(name)
-                card.addView(TextView(this).apply{text="${members.size} files · ${bytes(members.sumOf{it.size})}";setPadding(dp(10),0,dp(10),dp(8))})
-                row.addView(card,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(3),dp(7),dp(3),0)})
+                card.addView(TextView(this).apply{text="${members.size} files · ${bytes(members.sumOf{it.size})}";setPadding(dp(14),dp(4),dp(14),dp(14))})
+                row.addView(card,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(3),dp(10),dp(3),0)})
             }
             if(pair.size==1)row.addView(Space(this),LinearLayout.LayoutParams(0,1,1f))
         }
@@ -200,18 +212,18 @@ class SmartActivity:ComponentActivity(){
     private fun thumbnail(row:LinearLayout,m:Medium){val image=ImageView(this);image.scaleType=ImageView.ScaleType.CENTER_CROP;row.addView(image,LinearLayout.LayoutParams(dp(58),dp(58)));thumbLoader(image,m)}
     private fun review(){
         val cat=category?:return dashboard();screen(cat,true)
-        val rows=results.keys.filter{m->(results.getValue(m).findings.any{it.category==cat} || (cat=="Protected" && locks.contains(m.uri))) && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
-        val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
+        val rows=results.keys.filter{m->results.getValue(m).findings.any{it.category==cat} && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
+        val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedByDescending{it.size}}
         val controls=LinearLayout(this);controls.setPadding(dp(8),0,dp(8),0);page.addView(controls)
         fun chip(name:String,action:()->Unit):MaterialButton{
             val control=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()}}
-            controls.addView(control,LinearLayout.LayoutParams(0,-2,1f))
+            controls.addView(control,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(3),0,dp(3),dp(4))})
             return control
         }
         chip("Sort"){choices("Sort",arrayOf("Recommended","Largest","Oldest","Newest")){n->sort=n;review()}}
         chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();choices("Filter",opts){n->filter=opts[n];review()}}
         val grid=GridView(this);grid.numColumns=3;grid.horizontalSpacing=0;grid.verticalSpacing=0;page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
-        fun eligible()=rows.filterNot{protected(it)}
+        fun eligible()=rows
         lateinit var allButton:MaterialButton
         lateinit var action:MaterialButton
         fun updateActions(){
@@ -237,20 +249,23 @@ class SmartActivity:ComponentActivity(){
                 fun updateSelection(){
                     tint.visibility=if(m in selected)View.VISIBLE else View.GONE
                     photo.isSelected=m in selected
-                    photo.contentDescription=if(protected(m))"Locked by you. Hold to unlock" else if(m in selected)"Selected photo. Tap to deselect" else "Photo. Tap to select. Hold for options"
+                    photo.contentDescription=if(m in selected)"Selected photo. Tap to deselect" else "Photo. Tap to select. Hold for options"
                 }
                 updateSelection()
                 photo.setOnClickListener{
-                    if(!submitting && !protected(m)){
+                    if(!submitting){
                         if(!selected.add(m))selected.remove(m)
                         updateSelection();updateActions()
-                    }else if(protected(m))Toast.makeText(this@SmartActivity,"Locked by you · hold to unlock",Toast.LENGTH_SHORT).show()
+                    }
                 }
-                photo.setOnLongClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
-                    val options=(listOf("Preview",if(locks.contains(m.uri))"Unlock" else "Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
-                    choices("Photo options",options){n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
-                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,!locks.contains(m.uri)) else if(n==5 && group!=null){it.retain(group,m);locks.set(m,true)} else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
-                    }};true};return cell}}
+                photo.setOnLongClickListener{
+                    choices("Photo options",arrayOf("Preview","Review later")){n->
+                        if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))}
+                        else lifecycleScope.launch{
+                            results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.choice(m,"Review later");it.results(run)}}
+                            selected.remove(m);review()
+                        }
+                    };true};return cell}}
         if(sorted.isEmpty())label("No items remaining",16)
         grid.adapter=adapter
         allButton=chip("Select all"){val eligible=eligible();if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
@@ -276,7 +291,7 @@ class SmartActivity:ComponentActivity(){
         if(selected.size>2000){Toast.makeText(this,"Select up to 2,000 files per request.",Toast.LENGTH_LONG).show();return}
         submitting=true
         lifecycleScope.launch{
-                val chosen=selected.toList();waiting=withContext(Dispatchers.IO){chosen.filter{m->!protected(m)&&runCatching{contentResolver.query(Uri.parse(m.uri),arrayOf("_size","date_modified"),null,null,null)?.use{it.moveToFirst()&&it.getLong(0)==m.size&&it.getLong(1)==m.stamp}==true}.getOrDefault(false)}}
+                val chosen=selected.toList();waiting=withContext(Dispatchers.IO){chosen.filter{m->runCatching{contentResolver.query(Uri.parse(m.uri),arrayOf("_size","date_modified"),null,null,null)?.use{it.moveToFirst()&&it.getLong(0)==m.size&&it.getLong(1)==m.stamp}==true}.getOrDefault(false)}}
                 if(waiting.size!=chosen.size){submitting=false;Toast.makeText(this@SmartActivity,"Media changed. Scan again before cleanup.",Toast.LENGTH_LONG).show();selected.clear();landing();return@launch}
                 try{val pi=MediaStore.createTrashRequest(contentResolver,waiting.map{Uri.parse(it.uri)},true);trash.launch(androidx.activity.result.IntentSenderRequest.Builder(pi.intentSender).build())}
                 catch(_:Exception){submitting=false;Toast.makeText(this@SmartActivity,"Android could not open Trash confirmation.",Toast.LENGTH_LONG).show()}

@@ -26,7 +26,7 @@ class SmartGalleryTest {
         if(view is ViewGroup)for(i in 0 until view.childCount)find(view.getChildAt(i),type)?.let{return it}
         return null
     }
-    @Test fun imageOverlaySelectionAndLock(){
+    @Test fun imageOverlaySelectionWithoutLocks(){
         val context=ApplicationProvider.getApplicationContext<Context>()
         val resolver=context.contentResolver
         val uri=requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,ContentValues().apply{
@@ -58,10 +58,11 @@ class SmartGalleryTest {
                     photo.performClick()
                     assertFalse(selected.contains(m))
                     assertFalse(photo.isSelected)
-                    MediaLocks(context).set(m,true)
+                    context.getSharedPreferences("locked_media",0).edit().putString(m.uri,"legacy").commit()
                     photo.performClick()
-                    assertFalse(selected.contains(m))
-                    MediaLocks(context).set(m,false)
+                    assertTrue(selected.contains(m))
+                    photo.performClick()
+
 
                 }
                 UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
@@ -73,7 +74,7 @@ class SmartGalleryTest {
                 assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(context.getExternalFilesDir(null),"Clenzy-AI-menu.png")))
             }
         }finally{
-            MediaLocks(context).set(m,false)
+            context.getSharedPreferences("locked_media",0).edit().clear().commit()
             resolver.delete(uri,null,null)
         }
     }

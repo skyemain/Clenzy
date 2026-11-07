@@ -26,7 +26,7 @@ public final class HomeActivity extends AppCompatActivity {
     private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
     @Override public void onCreate(Bundle state){
         int theme=getSharedPreferences("cleanup",0).getInt("theme",-1);
-        applyTheme(theme); super.onCreate(state); draw();
+        applyTheme(theme); super.onCreate(state); getSharedPreferences("locked_media",0).edit().clear().apply(); draw();
         if(getIntent().getBooleanExtra("settings",false))settings();
     }
     @Override protected void onResume(){super.onResume(); if(page!=null){if(getIntent().getBooleanExtra("settings",false))settings();else draw();}if(waitingUsage){waitingUsage=false;loadApps();}}
@@ -34,9 +34,9 @@ public final class HomeActivity extends AppCompatActivity {
     private void draw(){
         ink=Aurora.INK;muted=Aurora.MUTED;surface=Aurora.SURFACE;bg=Aurora.BASE;Aurora.window(this);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackground(Aurora.background());
-        page=column();page.setPadding(dp(24),dp(32),dp(24),dp(24));scroll.addView(page);
-        scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(28),dp(24),insets.getSystemWindowInsetBottom()+dp(24));return insets;});
-        TextView brand=text("C  Clenzy",32,ink);brand.setTypeface(null,Typeface.BOLD);page.addView(brand);
+        page=column();page.setPadding(dp(10),dp(32),dp(10),dp(24));scroll.addView(page);
+        scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(10),insets.getSystemWindowInsetTop()+dp(28),dp(10),insets.getSystemWindowInsetBottom()+dp(24));return insets;});
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);TextView brand=text("Clenzy",32,ink);brand.setTypeface(null,Typeface.BOLD);header.addView(brand,new LinearLayout.LayoutParams(0,-2,1));header.addView(Aurora.iconButton(this,"settings","Settings",()->startActivity(new Intent(this,HomeActivity.class).putExtra("settings",true))),new LinearLayout.LayoutParams(dp(48),dp(48)));page.addView(header);
         page.addView(new Space(this),new LinearLayout.LayoutParams(1,0,1));
         addScanCard("Scan","Files & storage",false,this::startCleaning);
         addScanCard("Scan with AI","Photos & videos",true,()->startActivity(new Intent(this,SmartActivity.class)));
@@ -44,7 +44,7 @@ public final class HomeActivity extends AppCompatActivity {
         setContentView(scroll);scroll.requestApplyInsets();
     }
     private void addScanCard(String title,String subtitle,boolean ai,Runnable action){
-        LinearLayout tile=new LinearLayout(this);tile.setGravity(Gravity.CENTER_VERTICAL);tile.setPadding(dp(24),dp(28),dp(18),dp(28));tile.setBackground(Aurora.glass(this,ai));tile.setMinimumHeight(dp(180));tile.setFocusable(true);tile.setContentDescription(title);tile.setOnClickListener(v->action.run());
+        LinearLayout tile=new LinearLayout(this);tile.setGravity(Gravity.CENTER_VERTICAL);tile.setPadding(dp(24),dp(28),dp(18),dp(28));tile.setBackground(Aurora.glass(this,ai));tile.setMinimumHeight(dp(200));tile.setFocusable(true);tile.setContentDescription(title);tile.setOnClickListener(v->action.run());
         LinearLayout words=column();TextView name=text(title,28,ink);name.setTypeface(null,Typeface.BOLD);name.setOnClickListener(v->action.run());words.addView(name);words.addView(text(subtitle,15,muted));tile.addView(words,new LinearLayout.LayoutParams(0,-2,1));
         ImageView icon=new ImageView(this);icon.setImageDrawable(Aurora.symbol(ai));icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);tile.addView(icon,new LinearLayout.LayoutParams(dp(82),dp(82)));
         LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,-2);layout.setMargins(0,dp(16),0,0);page.addView(tile,layout);
@@ -54,18 +54,36 @@ public final class HomeActivity extends AppCompatActivity {
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
     private void settings(){
         Aurora.window(this);ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackground(Aurora.background());
-        page=column();scroll.addView(page);scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(12),dp(24),insets.getSystemWindowInsetBottom()+dp(24));return insets;});
+        page=column();scroll.addView(page);scroll.setOnApplyWindowInsetsListener((v,insets)->{page.setPadding(dp(10),insets.getSystemWindowInsetTop()+dp(12),dp(10),insets.getSystemWindowInsetBottom()+dp(24));return insets;});
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(Aurora.iconButton(this,"back","Back",this::finish),new LinearLayout.LayoutParams(dp(48),dp(48)));
         TextView heading=text("Settings",24,ink);heading.setTypeface(null,Typeface.BOLD);heading.setGravity(Gravity.CENTER);header.addView(heading,new LinearLayout.LayoutParams(0,-2,1));header.addView(new Space(this),new LinearLayout.LayoutParams(dp(48),dp(48)));page.addView(header);
+        storageSummary();
         addSetting("Cleanup history","Recent cleanup results","Downloads",this::history);
-        addSetting("Privacy & access","Permissions and on-device processing","settings",()->message("Privacy & access","Files stay on your phone. Clenzy scans only storage and media you allow. Android handles permissions and Trash confirmation."));
-        addSetting("System storage","Open Android storage settings","Large files",()->{try{startActivity(new Intent(android.os.storage.StorageManager.ACTION_MANAGE_STORAGE));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS));}});
-        addSetting("Photos & videos","Review media permissions and files","Screenshots",()->open("photos"));
-        addSetting("Clenzy cache","Manage this app’s temporary files","Duplicate copies",()->open("cache"));
-        addSetting("Apps","Review installed app storage","Apps",this::apps);
-        addSetting("About Clenzy","Version 2.1.2","Home",()->message("Clenzy 2.1.2","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy."));
+        addSetting("Privacy & access",accessSummary(),"settings",this::accessSettings);
+        addSetting("Clenzy cache","Manage temporary files","Duplicate copies",()->open("cache"));
+        addSetting("About Clenzy","Version 2.2.0","Home",()->message("Clenzy 2.2.0","Offline storage review and cleanup."));
         setContentView(scroll);scroll.requestApplyInsets();
+    }
+    private String accessSummary(){
+        boolean all=Build.VERSION.SDK_INT>=30 && Environment.isExternalStorageManager();
+        boolean photos=checkSelfPermission(Build.VERSION.SDK_INT>=33?android.Manifest.permission.READ_MEDIA_IMAGES:android.Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
+        boolean videos=checkSelfPermission(Build.VERSION.SDK_INT>=33?android.Manifest.permission.READ_MEDIA_VIDEO:android.Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
+        return "Shared files: "+(all?"allowed":"limited")+" · Media: "+(photos&&videos?"all":"limited");
+    }
+    private void accessSettings(){
+        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(20),dp(20),dp(20),dp(16));content.setBackground(Aurora.glass(this,true));
+        content.addView(text("Privacy & access",24,ink));content.addView(text(accessSummary(),15,muted));
+        content.addView(text("All files access covers shared storage. Android keeps other apps’ private data separate.",13,muted));
+        if(Build.VERSION.SDK_INT>=30)content.addView(button("Shared files access",()->{dialog.dismiss();try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}},false));
+        content.addView(button("Photos & videos permission",()->{dialog.dismiss();startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));},false));
+        content.addView(button("Done",dialog::dismiss,false));dialog.setContentView(content);dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));dialog.show();dialog.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels-dp(20),-2);
+    }
+    private void storageSummary(){
+        StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes();
+        LinearLayout card=column();card.setPadding(dp(20),dp(18),dp(20),dp(20));card.setBackground(Aurora.glass(this,false));
+        card.addView(text("DEVICE STORAGE",12,muted));card.addView(text(size(free)+" free of "+size(total),23,ink));
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(total>0?(int)((total-free)*100/total):0);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Aurora.ACCENT));card.addView(bar,new LinearLayout.LayoutParams(-1,dp(8)));page.addView(card,spaced());
     }
     private void addSetting(String title,String subtitle,String symbol,Runnable action){
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(18),dp(18),dp(18),dp(18));row.setBackground(Aurora.glass(this,false));
@@ -79,7 +97,7 @@ public final class HomeActivity extends AppCompatActivity {
             if(entries.length()==0){message("Cleanup history","No completed cleanup yet.");return;}
             String[] rows=new String[entries.length()];
             for(int n=0;n<entries.length();n++){var entry=entries.getJSONObject(n);rows[n]=android.text.format.DateFormat.format("MMM d, h:mm a",entry.getLong("time"))+" · "+size(entry.getLong("bytes"))+" · "+entry.getInt("files")+" files";}
-            new AlertDialog.Builder(this).setTitle("Cleanup history · on this device").setItems(rows,(d,w)->{try{var item=entries.getJSONObject(w);message("Cleanup details",rows[w]+"\n"+item.getInt("skipped")+" skipped or unavailable. Source bytes deleted may differ from device free-space changes.");}catch(org.json.JSONException e){message("Unavailable","This history entry could not be read.");}}).setPositiveButton("Done",null).show();
+            message("Cleanup history",String.join("\n\n",rows));
         }catch(org.json.JSONException e){message("History unavailable","Saved cleanup history could not be read.");}
     }
     private boolean usageAllowed(){

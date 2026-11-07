@@ -61,7 +61,7 @@ public final class CleanActivity extends AppCompatActivity {
     @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] results){super.onRequestPermissionsResult(code,permissions,results);if(code==21){if(hasStorage())startScan();else render();}}
     private void startScan(){categoryOpened=false;model.category=ReviewRules.Category.ALL;model.sharedStorage=true;model.ownCache=false;model.media=false;model.downloadsOnly=false;model.scan(false);}
     private void scaffold(String heading){
-        page=column();page.setBackground(Aurora.background());page.setPadding(dp(24),dp(12),dp(24),dp(12));page.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(12),dp(24),insets.getSystemWindowInsetBottom()+dp(10));return insets;});
+        page=column();page.setBackground(Aurora.background());page.setPadding(dp(10),dp(12),dp(10),dp(12));page.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(10),insets.getSystemWindowInsetTop()+dp(12),dp(10),insets.getSystemWindowInsetBottom()+dp(10));return insets;});
         LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(Aurora.iconButton(this,"back","Back",()->getOnBackPressedDispatcher().onBackPressed()),new LinearLayout.LayoutParams(dp(48),dp(48)));
         TextView title=text(heading,20,ink);title.setGravity(Gravity.CENTER);title.setTypeface(null,Typeface.BOLD);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));

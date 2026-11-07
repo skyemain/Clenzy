@@ -56,7 +56,7 @@ public final class CleanupViewModel extends AndroidViewModel {
                     var scan = documents.scan(tree, cancellation, deep); result = scan.files(); hashed = scan.hashed(); notHashed = scan.notHashed(); truncated = scan.truncated(); skipped = scan.skipped();
                 }
                 String message = (sharedStorage ? shared.discovery+" " : "")+result.size()+" files reviewed · "+hashed+" duplicate checks · "+notHashed+" not hashed (unique size, limit or unavailable) · "+skipped+" unreadable checks."+(truncated ? " Scan limit reached." : "");
-                final List<ReviewFile> available=new MediaLocks(getApplication()).unlocked(result);
+                final List<ReviewFile> available=result;
                 final int inaccessible=skipped;main.post(() -> { scanTruncated=truncated;unreadableFolders=inaccessible;scanFinished=true;files = available; status = message; if(ownCache) for(ReviewFile f:files) selected.add(f.uri()); busy = false; changed(); });
             } catch (Exception e) { main.post(() -> { scanFinished=true;scanFailed=true;status = cancellation.isCanceled() ? "Scan cancelled. Nothing deleted." : sharedStorage?"Shared storage could not be read. Enable All files access for Clenzy, then scan again.":"Access unavailable. Choose the folder or grant Photos access again."; busy = false; changed(); }); }
         });
@@ -68,7 +68,7 @@ public final class CleanupViewModel extends AndroidViewModel {
         List<ReviewFile> requested = chosen(); deleting=true;busy = true; cancellation = new CancellationSignal(); changed();
         worker.execute(() -> {
             try {
-                List<ReviewFile> chosen = new MediaLocks(getApplication()).unlocked(requested);
+                List<ReviewFile> chosen = requested;
                 if (media) {
                     if (Build.VERSION.SDK_INT < 30) {
                         main.post(() -> { status = "Open the selected media in your gallery to remove it on this Android version."; busy = false; changed(); }); return;

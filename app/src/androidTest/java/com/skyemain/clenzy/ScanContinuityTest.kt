@@ -9,6 +9,17 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ScanContinuityTest {
+    @Test fun backgroundNotificationReportsActualProgress(){
+        val context=ApplicationProvider.getApplicationContext<Context>()
+        val info=ScanNotifications.foreground(context,java.util.UUID.randomUUID(),"Analyzing",12,100)
+        assertEquals(1947,info.notificationId)
+        assertEquals(12,info.notification.extras.getInt(android.app.Notification.EXTRA_PROGRESS))
+        assertEquals(100,info.notification.extras.getInt(android.app.Notification.EXTRA_PROGRESS_MAX))
+        assertFalse(info.notification.extras.getBoolean(android.app.Notification.EXTRA_PROGRESS_INDETERMINATE))
+        assertNotNull(info.notification.contentIntent)
+        assertEquals("Stop",info.notification.actions.single().title)
+    }
+
     @Test fun verifiesActualTrashedMedia(){
         if(android.os.Build.VERSION.SDK_INT<30)return
         val context=ApplicationProvider.getApplicationContext<Context>()
