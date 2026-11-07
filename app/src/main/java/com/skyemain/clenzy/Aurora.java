@@ -34,6 +34,10 @@ public final class Aurora {
         @Override public void getOutline(Outline outline){outline.setRoundRect(getBounds(),dp(context,32));}
         @Override public void setAlpha(int a){} @Override public void setColorFilter(ColorFilter f){} @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
     };}
+    public static Drawable panel(Context context,boolean ai){
+        GradientDrawable backing=new GradientDrawable();backing.setColor(0xff101b35);backing.setCornerRadius(dp(context,32));
+        return new LayerDrawable(new Drawable[]{backing,glass(context,ai)});
+    }
     public static void button(MaterialButton b){
         b.setAllCaps(false);b.setMinHeight(dp(b.getContext(),48));b.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{MUTED,INK}));
         b.setBackgroundTintList(null);b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x4477e8ff),glass(b.getContext(),false),null));

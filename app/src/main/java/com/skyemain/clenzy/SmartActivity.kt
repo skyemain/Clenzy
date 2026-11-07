@@ -274,7 +274,7 @@ class SmartActivity:ComponentActivity(){
     }
     private fun choices(title:String,options:Array<String>,choose:(Int)->Unit){
         val dialog=android.app.Dialog(this)
-        val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(20),dp(20),dp(12));background=Aurora.glass(this@SmartActivity,true)}
+        val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(20),dp(20),dp(12));background=Aurora.panel(this@SmartActivity,true)}
         content.addView(TextView(this).apply{text=title;textSize=23f;setTextColor(Aurora.INK);setTypeface(null,Typeface.BOLD);setPadding(0,0,0,dp(12))})
         val scroll=ScrollView(this);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(list)
         options.forEachIndexed{index,name->list.addView(MaterialButton(this).apply{

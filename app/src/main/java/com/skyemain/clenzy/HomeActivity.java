@@ -72,7 +72,7 @@ public final class HomeActivity extends AppCompatActivity {
         return "Shared files: "+(all?"allowed":"limited")+" · Media: "+(photos&&videos?"all":"limited");
     }
     private void accessSettings(){
-        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(20),dp(20),dp(20),dp(16));content.setBackground(Aurora.glass(this,true));
+        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(20),dp(20),dp(20),dp(16));content.setBackground(Aurora.panel(this,true));
         content.addView(text("Privacy & access",24,ink));content.addView(text(accessSummary(),15,muted));
         content.addView(text("All files access covers shared storage. Android keeps other apps’ private data separate.",13,muted));
         if(Build.VERSION.SDK_INT>=30)content.addView(button("Shared files access",()->{dialog.dismiss();try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}},false));
@@ -83,10 +83,10 @@ public final class HomeActivity extends AppCompatActivity {
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes();
         LinearLayout card=column();card.setPadding(dp(20),dp(18),dp(20),dp(20));card.setBackground(Aurora.glass(this,false));
         card.addView(text("DEVICE STORAGE",12,muted));card.addView(text(size(free)+" free of "+size(total),23,ink));
-        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(total>0?(int)((total-free)*100/total):0);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Aurora.ACCENT));card.addView(bar,new LinearLayout.LayoutParams(-1,dp(8)));page.addView(card,spaced());
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(total>0?(int)((total-free)*100/total):0);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(Aurora.ACCENT));card.addView(bar,new LinearLayout.LayoutParams(-1,dp(8)));LinearLayout.LayoutParams space=new LinearLayout.LayoutParams(-1,-2);space.setMargins(0,dp(8),0,dp(4));page.addView(card,space);
     }
     private void addSetting(String title,String subtitle,String symbol,Runnable action){
-        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(18),dp(18),dp(18),dp(18));row.setBackground(Aurora.glass(this,false));
+        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(18),dp(12),dp(18),dp(12));row.setBackground(Aurora.glass(this,false));
         ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(symbol,Aurora.ACCENT));row.addView(icon,new LinearLayout.LayoutParams(dp(30),dp(30)));
         LinearLayout words=column();words.setPadding(dp(16),0,0,0);TextView name=text(title,17,ink);name.setTypeface(null,Typeface.BOLD);words.addView(name);words.addView(text(subtitle,12,muted));row.addView(words,new LinearLayout.LayoutParams(0,-2,1));row.setFocusable(true);row.setContentDescription(title);row.setOnClickListener(v->action.run());
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(12),0,0);page.addView(row,lp);
@@ -146,7 +146,7 @@ public final class HomeActivity extends AppCompatActivity {
         }
     }
     private void message(String title,String body){
-        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(20));content.setBackground(Aurora.glass(this,true));
+        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(20));content.setBackground(Aurora.panel(this,true));
         TextView name=text(title,24,ink);name.setTypeface(null,Typeface.BOLD);content.addView(name);content.addView(text(body,15,muted),spaced());content.addView(button("Done",dialog::dismiss,false));dialog.setContentView(content);
         dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));dialog.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels-dp(40),-2);dialog.show();dialog.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels-dp(40),-2);
     }
