@@ -199,7 +199,6 @@ class SmartActivity:ComponentActivity(){
     private fun thumbnail(row:LinearLayout,m:Medium){val image=ImageView(this);image.scaleType=ImageView.ScaleType.CENTER_CROP;row.addView(image,LinearLayout.LayoutParams(dp(58),dp(58)));thumbLoader(image,m)}
     private fun review(){
         val cat=category?:return dashboard();screen(cat)
-        button("Scan again",this::rescan)
         val rows=results.keys.filter{m->(results.getValue(m).findings.any{it.category==cat} || (cat=="Protected" && locks.contains(m.uri))) && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
         val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
         val controls=LinearLayout(this);page.addView(controls)
@@ -210,7 +209,7 @@ class SmartActivity:ComponentActivity(){
         }
         chip("Sort"){AlertDialog.Builder(this).setItems(arrayOf("Recommended","Largest","Oldest","Newest")){_,n->sort=n;review()}.show()}
         chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();AlertDialog.Builder(this).setItems(opts){_,n->filter=opts[n];review()}.show()}
-        val grid=GridView(this);grid.numColumns=1;grid.horizontalSpacing=dp(8);grid.verticalSpacing=dp(8);page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
+        val grid=GridView(this);grid.numColumns=3;grid.horizontalSpacing=0;grid.verticalSpacing=0;page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
         fun eligible()=rows.filterNot{protected(it)}
         lateinit var allButton:MaterialButton
         lateinit var action:MaterialButton
@@ -223,59 +222,34 @@ class SmartActivity:ComponentActivity(){
         }
         val adapter=object:BaseAdapter(){override fun getCount()=sorted.size;override fun getItem(p:Int)=sorted[p];override fun getItemId(p:Int)=p.toLong()
             override fun getView(p:Int,v:View?,parent:ViewGroup):View{val m=sorted[p]
-                val cell=LinearLayout(this@SmartActivity).apply{
-                    orientation=LinearLayout.VERTICAL
-                    setPadding(0,dp(4),0,dp(4))
-                }
-                val canvas=FrameLayout(this@SmartActivity)
-                val available=(resources.displayMetrics.widthPixels/resources.displayMetrics.density).toInt()-40
-                cell.addView(canvas,LinearLayout.LayoutParams(-1,dp(available.coerceIn(260,460))))
+                val cell=FrameLayout(this@SmartActivity)
+                val edge=((resources.displayMetrics.widthPixels-page.paddingLeft-page.paddingRight)/3).coerceAtLeast(1)
+                cell.layoutParams=AbsListView.LayoutParams(-1,edge)
                 val photo=ImageView(this@SmartActivity).apply{
-                    scaleType=ImageView.ScaleType.FIT_CENTER
-                    setBackgroundColor(0xff16201c.toInt())
+                    scaleType=ImageView.ScaleType.CENTER_CROP
                     contentDescription="Photo or video preview"
                 }
-                canvas.addView(photo,FrameLayout.LayoutParams(-1,-1))
+                cell.addView(photo,FrameLayout.LayoutParams(-1,-1))
                 thumbLoader(photo,m,true)
-                val t=TextView(this@SmartActivity).apply{
-                    text=bytes(m.size)+(if(m.video)" · Video" else "")
-                    setTextColor(android.graphics.Color.WHITE)
-                    setBackgroundColor(0xbb101714.toInt())
-                    setPadding(dp(8),dp(4),dp(8),dp(4))
+                val tint=View(this@SmartActivity).apply{setBackgroundColor(0x6634d6b0);isClickable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
+                cell.addView(tint,FrameLayout.LayoutParams(-1,-1))
+                fun updateSelection(){
+                    tint.visibility=if(m in selected)View.VISIBLE else View.GONE
+                    photo.isSelected=m in selected
+                    photo.contentDescription=if(protected(m))"Protected photo. Hold for options" else if(m in selected)"Selected photo. Tap to deselect" else "Photo. Tap to select. Hold for options"
                 }
-                canvas.addView(t,FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.START).apply{setMargins(dp(8),0,0,dp(8))})
-                val locked=locks.contains(m.uri)
-                val lock=android.widget.ToggleButton(this@SmartActivity).apply{
-                    textOn="Locked";textOff="Lock";isChecked=locked;text=if(locked)textOn else textOff
-                    contentDescription=if(locked)"Unlock ${m.name}" else "Lock ${m.name}"
+                updateSelection()
+                photo.setOnClickListener{
+                    if(!submitting && !protected(m)){
+                        if(!selected.add(m))selected.remove(m)
+                        updateSelection();updateActions()
+                    }else if(protected(m))Toast.makeText(this@SmartActivity,"Protected · hold for options",Toast.LENGTH_SHORT).show()
                 }
-                lock.setTextColor(android.graphics.Color.WHITE)
-                lock.setBackgroundColor(0xbb101714.toInt())
-                canvas.addView(lock,FrameLayout.LayoutParams(dp(80),dp(48),Gravity.TOP or Gravity.START).apply{setMargins(dp(8),dp(8),0,0)})
-                lock.setOnCheckedChangeListener{_,on->
-                    if(submitting){lock.isEnabled=false;return@setOnCheckedChangeListener}
-                    locks.set(m,on);selected.remove(m)
-                    if(cat=="Protected" && !on && results.getValue(m).findings.none{it.category==cat})review()
-                    else {notifyDataSetChanged();updateActions()}
-                }
-                val check=CheckBox(this@SmartActivity).apply{
-                    text=""
-                    contentDescription=if(protected(m))"Protected photo" else "Select photo"
-                    isEnabled=!protected(m)
-                    isChecked=m in selected
-                    buttonTintList=android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
-                    setBackgroundColor(0xbb101714.toInt())
-                }
-                canvas.addView(check,FrameLayout.LayoutParams(dp(48),dp(48),Gravity.TOP or Gravity.END).apply{setMargins(0,dp(8),dp(8),0)})
-                photo.setOnClickListener{if(check.isEnabled)check.toggle()}
-                check.setOnCheckedChangeListener{_,yes->if(yes)selected.add(m) else selected.remove(m);updateActions()}
-                val details=MaterialButton(this@SmartActivity).apply{text="⋯";contentDescription="Photo details";isAllCaps=false}
-                canvas.addView(details,FrameLayout.LayoutParams(dp(52),dp(48),Gravity.BOTTOM or Gravity.END).apply{setMargins(0,0,dp(8),dp(4))})
-                details.setOnClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
-                    val options=(listOf("Preview","Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
-                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+(if(locks.contains(m.uri))"Locked by you" else results.getValue(m).findings.first{it.category==cat}.reason)).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
-                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,true) else if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
-                    }}.show()};return cell}}
+                photo.setOnLongClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
+                    val options=(listOf("Preview",if(locks.contains(m.uri))"Unlock" else "Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
+                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+(if(locks.contains(m.uri))"Locked by you" else results.getValue(m).findings.firstOrNull{it.category==cat}?.reason.orEmpty())).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
+                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,!locks.contains(m.uri)) else if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
+                    }}.show();true};return cell}}
         grid.adapter=adapter
         allButton=chip("Select all"){val eligible=eligible();if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
         action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}

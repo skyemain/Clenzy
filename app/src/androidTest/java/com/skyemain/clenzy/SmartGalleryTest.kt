@@ -6,7 +6,9 @@ import android.provider.MediaStore
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
-import android.widget.ToggleButton
+import android.widget.GridView
+import android.widget.ImageView
+import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -42,14 +44,22 @@ class SmartGalleryTest {
                 }
                 InstrumentationRegistry.getInstrumentation().waitForIdleSync()
                 scenario.onActivity{activity->
-                    val check=requireNotNull(find(activity.window.decorView,CheckBox::class.java))
-                    assertEquals("",check.text.toString())
-                    check.performClick()
+                    val grid=requireNotNull(find(activity.window.decorView,GridView::class.java))
+                    assertEquals(3,grid.numColumns)
+                    assertNull(find(grid,CheckBox::class.java))
+                    val photo=requireNotNull(find(grid,ImageView::class.java))
+                    photo.performClick()
                     val selected=SmartActivity::class.java.getDeclaredField("selected").apply{isAccessible=true}.get(activity) as Set<*>
                     assertTrue(selected.contains(m))
-                    requireNotNull(find(activity.window.decorView,ToggleButton::class.java)).performClick()
+                    assertTrue(photo.isSelected)
+                    photo.performClick()
                     assertFalse(selected.contains(m))
-                    assertTrue(MediaLocks(context).contains(m.uri))
+                    assertFalse(photo.isSelected)
+                    MediaLocks(context).set(m,true)
+                    photo.performClick()
+                    assertFalse(selected.contains(m))
+                    MediaLocks(context).set(m,false)
+
                 }
                 UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
                 Thread.sleep(1500)
