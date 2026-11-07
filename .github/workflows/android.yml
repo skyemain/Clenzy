@@ -77,6 +77,7 @@ jobs:
             adb shell am start -n com.skyemain.clenzy/.HomeActivity
             sleep 3
             mkdir -p screenshots
+            adb logcat -d -s ClenzyBenchmark:I > screenshots/scan-benchmark.txt
             adb exec-out screencap -p > screenshots/Clenzy-Android-home.png
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-review.png screenshots/Clenzy-Android-review.png
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-light.png screenshots/
