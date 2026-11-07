@@ -128,7 +128,7 @@ class SmartActivity:ComponentActivity(){
         val grouped=linkedMapOf<String,MutableList<Medium>>()
         for((item,insight) in results){
             for(finding in insight.findings.distinctBy{it.category}){
-                if(finding.category!="Protected" && !protected(item))grouped.getOrPut(finding.category){mutableListOf()}.add(item)
+                if(finding.category!="Protected")grouped.getOrPut(finding.category){mutableListOf()}.add(item)
             }
         }
         val hero=LinearLayout(this).apply{
