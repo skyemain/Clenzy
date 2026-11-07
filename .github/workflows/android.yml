@@ -72,7 +72,7 @@ jobs:
             adb shell wm dismiss-keyguard
             adb shell am force-stop com.android.launcher3
             sleep 5
-            gradle connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true || { find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} +; adb logcat -d -s AndroidRuntime System.err; exit 1; }
+            gradle connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true || { find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} +; adb logcat -d -s AndroidRuntime System.err; mkdir -p screenshots; adb pull /sdcard/Android/data/com.skyemain.clenzy/files/. screenshots/; adb exec-out screencap -p > screenshots/failure.png; exit 1; }
             adb shell am force-stop com.skyemain.clenzy
             adb shell am start -n com.skyemain.clenzy/.HomeActivity
             sleep 3
@@ -89,6 +89,7 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-gallery.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-menu.png screenshots/
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: Clenzy-Android-screenshots
           path: screenshots/

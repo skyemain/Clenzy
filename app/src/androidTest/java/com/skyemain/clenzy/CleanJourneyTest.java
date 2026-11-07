@@ -38,6 +38,7 @@ public class CleanJourneyTest {
     assertTrue(device.wait(Until.hasObject(By.text("Shared files access")),5000));
     assertTrue(device.hasObject(By.textStartsWith("Shared files: allowed")));
     device.findObject(By.text("Done")).click();
+    assertTrue("Access dialog dismissed",device.wait(Until.gone(By.text("Shared files access")),5000));device.waitForIdle();
     device.pressBack();assertTrue(device.wait(Until.hasObject(By.text("Your cleanup")),5000));
     var duplicates=device.wait(Until.findObject(By.text("Duplicate copies")),5000);assertNotNull(duplicates);duplicates.click();
     var select=device.wait(Until.findObject(By.text("Select extra copies")),5000);assertNotNull(select);select.click();
