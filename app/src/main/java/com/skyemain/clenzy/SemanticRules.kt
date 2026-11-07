@@ -3,13 +3,14 @@ package com.skyemain.clenzy
 import java.util.Locale
 
 internal object SemanticRules {
+    fun mustProtectDocument(ocr:String,code:Boolean):Boolean = code || SmartRules.important.containsMatchIn(ocr.lowercase(Locale.ROOT)) ||
+        Regex("रसीद|चालान|भुगतान|खाता संख्या|आधार|पासपोर्ट|चिकित्सा|आरक्षण").containsMatchIn(ocr)
+
     fun assess(m:Medium,age:Long,ocr:String,face:Boolean,code:Boolean,labels:Set<String>,quality:String?,matches:List<SemanticMatch>):List<Finding>{
         val text=ocr.lowercase(Locale.ROOT)
         val reliable=matches.filter{it.reliable}
         val topics=reliable.map{it.label}.toSet()
-        val hindiDocument=Regex("रसीद|चालान|भुगतान|खाता संख्या|आधार|पासपोर्ट|चिकित्सा|आरक्षण").containsMatchIn(text)
-        val document=code || SmartRules.important.containsMatchIn(text) || hindiDocument ||
-            topics.any{it in setOf("identity","receipt","document")}
+        val document=mustProtectDocument(ocr,code) || topics.any{it in setOf("identity","receipt","document")}
         if(document)return listOf(Finding("Protected",if(code)"Contains a QR code or barcode" else "Document or payment information detected",true))
         val personal=matches.any{it.label in setOf("people","pet","landscape","food") && it.score>=0.04}
         if(personal)return listOf(Finding("Protected","Visual model suggests personal memories or everyday photographs",true))

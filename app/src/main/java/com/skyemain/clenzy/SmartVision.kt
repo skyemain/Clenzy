@@ -23,11 +23,10 @@ internal class SmartVision(val context:Context, private val parallel:Boolean=tru
     private val devanagari=TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
     private val faces=FaceDetection.getClient(FaceDetectorOptions.Builder().build())
     private val barcode=BarcodeScanning.getClient()
-    private val label=ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
     private val semantic by lazy { SemanticVision(context) }
     private var semanticUsed=false
     override fun close(){
-        text.close();devanagari.close();faces.close();barcode.close();label.close()
+        text.close();devanagari.close();faces.close();barcode.close()
         if(semanticUsed)semantic.close()
     }
     private fun image(m:Medium):Bitmap {
@@ -72,14 +71,13 @@ internal class SmartVision(val context:Context, private val parallel:Boolean=tru
                     val hindi=launch(devanagari.process(input))
                     val codes=launch(barcode.process(input))
                     val detectedFaces=launch(faces.process(input))
-                    val detectedLabels=launch(label.process(input))
-                    check();semanticUsed=true
-                    semantics+=semantic.classify(bitmap)
                     Tasks.await(com.google.android.gms.tasks.Tasks.whenAllComplete(tasks))
                     words.append(' ').append(Tasks.await(latin).text).append(' ').append(Tasks.await(hindi).text)
                     qr=qr || Tasks.await(codes).isNotEmpty()
                     person=person || Tasks.await(detectedFaces).isNotEmpty()
-                    labels.addAll(Tasks.await(detectedLabels).filter{it.confidence>=0.75f}.map{it.text})
+                    if(!SemanticRules.mustProtectDocument(words.toString(),qr)){
+                        check();semanticUsed=true;semantics+=semantic.classify(bitmap)
+                    }
                     check()
                 } finally {
                     // Native ML tasks cannot be cancelled by recycling their input.

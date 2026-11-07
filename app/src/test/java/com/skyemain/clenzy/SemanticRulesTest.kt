@@ -4,6 +4,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class SemanticRulesTest {
+    @org.junit.Test fun documentFastPathPreservesProtection(){
+        org.junit.Assert.assertTrue(SemanticRules.mustProtectDocument("payment receipt",false))
+        org.junit.Assert.assertTrue(SemanticRules.mustProtectDocument("",true))
+        org.junit.Assert.assertFalse(SemanticRules.mustProtectDocument("A lovely sunset",false))
+    }
+
     private val photo=Medium("content://test/1","x.jpg",10,4000,800,600,0,"WhatsApp",false,0,0)
     private fun assess(text:String="",topic:String="other",face:Boolean=false,qr:Boolean=false)=
         SemanticRules.assess(photo,100,text,face,qr,emptySet(),null,listOf(SemanticMatch(topic,.2,.04)))
