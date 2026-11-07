@@ -56,7 +56,7 @@ class SmartActivity:ComponentActivity(){
     private val trash=registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()){response->
         if(response.resultCode!=Activity.RESULT_OK){submitting=false;waiting=emptyList();review();return@registerForActivityResult}
         lifecycleScope.launch{
-            val moved=withContext(Dispatchers.IO){waiting.filter{m->runCatching{contentResolver.query(Uri.parse(m.uri),arrayOf("is_trashed"),null,null,null)?.use{it.moveToFirst()&&it.getInt(0)==1}==true}.getOrDefault(false)}}
+            val moved=withContext(Dispatchers.IO){waiting.filter{TrashState.isTrashed(contentResolver,it.uri)}}
             val movedUris=moved.map{it.uri}.toSet()
             results=results.filterKeys{it.uri !in movedUris}
             withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.removeResults(run,movedUris)}}
