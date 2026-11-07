@@ -7,6 +7,7 @@ public final class LineIcon extends Drawable {
  private void line(Canvas c,float... points){Path p=new Path();p.moveTo(points[0],points[1]);for(int n=2;n<points.length;n+=2)p.lineTo(points[n],points[n+1]);c.drawPath(p,paint);}
  @Override public void draw(Canvas c){c.save();c.translate(getBounds().left,getBounds().top);c.scale(getBounds().width()/24f,getBounds().height()/24f);
  switch(kind){
+ case "back":line(c,14,5,7,12,14,19);break;
  case "settings":c.drawCircle(12,12,6,paint);c.drawCircle(12,12,2,paint);for(int n=0;n<8;n++){double a=n*Math.PI/4;c.drawLine(12+(float)Math.cos(a)*8,12+(float)Math.sin(a)*8,12+(float)Math.cos(a)*10,12+(float)Math.sin(a)*10,paint);}break;
  case "Home":line(c,3,11,12,3,21,11,21,21,14,21,14,14,10,14,10,21,3,21,3,11);break;
  case "Apps":for(int x:new int[]{3,14})for(int y:new int[]{3,14})c.drawRoundRect(x,y,x+7,y+7,2,2,paint);break;

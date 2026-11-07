@@ -83,6 +83,7 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-light.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-dark.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-cleanup.png screenshots/
+            adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-settings.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-selection.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-results.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-gallery.png screenshots/
@@ -105,12 +106,12 @@ jobs:
           if [ "$(git rev-parse origin/android)" != "${{ github.sha }}" ]; then exit 0; fi
           mkdir -p release
           rm -f release/Clenzy-*-android-candidate.apk
-          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-2.1.0-android-candidate.apk
+          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-2.1.1-android-candidate.apk
           (cd release && sha256sum *.apk > SHA256SUMS.txt)
-          tag="android-v2.1.0-build-${GITHUB_RUN_NUMBER}"
-          apk="release/Clenzy-2.1.0-android-candidate.apk"
+          tag="android-v2.1.1-build-${GITHUB_RUN_NUMBER}"
+          apk="release/Clenzy-2.1.1-android-candidate.apk"
           if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Android 2.1.0" --notes "Signed Android candidate with on-device AI Smart Clean." --prerelease --latest=false
+            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Android 2.1.1" --notes "Signed Android candidate with on-device AI Smart Clean." --prerelease --latest=false
           fi
           gh release upload "$tag" "$apk" release/SHA256SUMS.txt --clobber
           printf 'https://github.com/%s/releases/download/%s/%s\n' "$GITHUB_REPOSITORY" "$tag" "$(basename "$apk")" > release/ANDROID-DOWNLOAD.txt

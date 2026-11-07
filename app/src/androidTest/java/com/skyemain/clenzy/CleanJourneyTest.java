@@ -28,7 +28,12 @@ public class CleanJourneyTest {
     scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertFalse(m.scanFailed);assertTrue(m.files.stream().anyMatch(f->f.name().equals(first.getName())));m.files=m.files.stream().filter(f->f.uri().contains(folder.getName())).toList();assertEquals(5,m.files.size());m.changed();});
     UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());device.waitForIdle();
     if(!device.wait(Until.hasObject(By.text("Videos")),15000)){java.io.ByteArrayOutputStream hierarchy=new java.io.ByteArrayOutputStream();device.dumpWindowHierarchy(hierarchy);throw new AssertionError("Videos missing: "+hierarchy.toString("UTF-8"));}assertNotNull("Downloads visible",device.findObject(By.text("Downloads")));assertNotNull("Screenshots visible",device.findObject(By.text("Screenshots")));
+    assertFalse(device.hasObject(By.text("Available to review")));assertFalse(device.hasObject(By.text("Scan details")));
     assertTrue(device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-Android-cleanup.png")));
+    var settings=device.findObject(By.desc("Settings"));assertNotNull(settings);settings.click();
+    assertTrue(device.wait(Until.hasObject(By.text("Cleanup history")),5000));
+    assertTrue(device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-Android-settings.png")));
+    device.pressBack();assertTrue(device.wait(Until.hasObject(By.text("Your cleanup")),5000));
     var duplicates=device.wait(Until.findObject(By.text("Duplicate copies")),5000);assertNotNull(duplicates);duplicates.click();
     var select=device.wait(Until.findObject(By.text("Select extra copies")),5000);assertNotNull(select);select.click();
     scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertEquals(1,m.selected.size());assertFalse(m.selected.contains(first.toURI().toString()));});

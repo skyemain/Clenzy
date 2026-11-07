@@ -23,6 +23,10 @@ public final class Aurora {
     };}
     public static GradientDrawable glass(Context c,boolean ai){GradientDrawable d=new GradientDrawable(GradientDrawable.Orientation.TL_BR,ai?new int[]{0xe62a426f,0xe633255c,0xee111d39}:new int[]{0xe61a5268,0xe620355b,0xee15213c});d.setCornerRadius(dp(c,28));d.setStroke(dp(c,1),ai?0x887f8eff:0x8866dce9);return d;}
     public static void button(MaterialButton b){b.setAllCaps(false);b.setCornerRadius(dp(b.getContext(),18));b.setMinHeight(dp(b.getContext(),48));b.setTextColor(INK);b.setBackgroundTintList(ColorStateList.valueOf(SURFACE));b.setStrokeWidth(dp(b.getContext(),1));b.setStrokeColor(ColorStateList.valueOf(0xff41567c));b.setRippleColor(ColorStateList.valueOf(0x4477e8ff));}
+    public static android.widget.ImageButton iconButton(Context c,String icon,String description,Runnable action){
+        android.widget.ImageButton b=new android.widget.ImageButton(c);b.setImageDrawable(new LineIcon(icon,INK));b.setContentDescription(description);b.setPadding(dp(c,12),dp(c,12),dp(c,12),dp(c,12));b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x3377e8ff),null,null));b.setOnClickListener(v->action.run());return b;
+    }
     public static Drawable symbol(boolean ai){return new Drawable(){
         final Paint p=new Paint(3);
         @Override public void draw(Canvas c){c.save();Rect b=getBounds();c.translate(b.left,b.top);c.scale(b.width()/100f,b.height()/100f);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setStrokeCap(Paint.Cap.ROUND);p.setColor(ai?0xffc5b5ff:ACCENT);

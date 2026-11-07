@@ -62,7 +62,11 @@ public final class CleanActivity extends AppCompatActivity {
     private void startScan(){categoryOpened=false;model.category=ReviewRules.Category.ALL;model.sharedStorage=true;model.ownCache=false;model.media=false;model.downloadsOnly=false;model.scan(false);}
     private void scaffold(String heading){
         page=column();page.setBackground(Aurora.background());page.setPadding(dp(24),dp(12),dp(24),dp(12));page.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(24),insets.getSystemWindowInsetTop()+dp(12),dp(24),insets.getSystemWindowInsetBottom()+dp(10));return insets;});
-        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);MaterialButton back=button("‹",false,()->getOnBackPressedDispatcher().onBackPressed());back.setContentDescription("Back");header.addView(back,new LinearLayout.LayoutParams(dp(52),dp(48)));TextView title=text(heading,17,ink);title.setTypeface(null,Typeface.BOLD);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));MaterialButton options=button("⋯",false,()->startActivity(new Intent(this,HomeActivity.class).putExtra("settings",true)));options.setText("");options.setIcon(new LineIcon("settings",ink));options.setIconPadding(0);options.setIconSize(dp(20));options.setPadding(0,0,0,0);options.setContentDescription("Settings");header.addView(options,new LinearLayout.LayoutParams(dp(48),dp(48)));page.addView(header);
+        LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(Aurora.iconButton(this,"back","Back",()->getOnBackPressedDispatcher().onBackPressed()),new LinearLayout.LayoutParams(dp(48),dp(48)));
+        TextView title=text(heading,20,ink);title.setGravity(Gravity.CENTER);title.setTypeface(null,Typeface.BOLD);header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
+        header.addView(Aurora.iconButton(this,"settings","Settings",()->startActivity(new Intent(this,HomeActivity.class).putExtra("settings",true))),new LinearLayout.LayoutParams(dp(48),dp(48)));page.addView(header);
+
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);body=column();scroll.addView(body);page.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));footer=column();page.addView(footer);setContentView(page);page.requestApplyInsets();page.post(page::requestApplyInsets);
     }
     private void render(){
@@ -86,18 +90,28 @@ public final class CleanActivity extends AppCompatActivity {
         if(model.scanFailed){body.addView(text(model.deleting?"Cleanup stopped.":"Let’s try again.",29,ink),gap(35));body.addView(text(model.status,14,muted));footer.addView(button("Storage access",false,this::permissionSheet));footer.addView(button("Scan again",true,this::begin));return;}
         if(!model.scanFinished){body.addView(text("Storage access",26,ink),gap(45));body.addView(text("Allow access to scan shared files.",14,muted));footer.addView(button("Scan my phone",true,this::begin));return;}
         List<CleanupGroups.Group> groups=CleanupGroups.from(model.files);currentGroups=groups;categoryCounts.clear();long total=CleanupGroups.reviewableBytes(groups);
-        body.addView(text(size(total),38,ink),gap(16));body.addView(text("Available to review",12,muted));if(model.unreadableFolders>0||model.scanTruncated)body.addView(text("Partial scan · "+model.unreadableFolders+" folders unreadable"+(model.scanTruncated?" · scan limit reached":""),12,muted));
-        for(var group:groups){
-            LinearLayout card=new LinearLayout(this);card.setGravity(Gravity.CENTER_VERTICAL);styleCard(card);card.setPadding(dp(16),dp(10),dp(16),dp(10));
-            ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(group.title(),accent));card.addView(icon,new LinearLayout.LayoutParams(dp(28),dp(28)));
-            LinearLayout labels=column();labels.setPadding(dp(12),0,dp(8),0);TextView name=text(group.title(),15,ink);name.setTypeface(null,Typeface.BOLD);name.setPadding(0,dp(2),0,dp(2));labels.addView(name);TextView count=text("",11,muted);count.setPadding(0,dp(2),0,dp(2));labels.addView(count);categoryCounts.put(group.title(),count);card.addView(labels,new LinearLayout.LayoutParams(0,-2,1));
-            card.addView(text(size(group.bytes())+"  ›",13,ink));card.setFocusable(true);card.setContentDescription(group.title()+", "+size(group.bytes()));card.setOnClickListener(v->showGroup(group));body.addView(card,gap(10));
+        TextView amount=text(size(total),36,ink);amount.setTypeface(null,Typeface.BOLD);body.addView(amount,gap(12));
+        if(model.unreadableFolders>0||model.scanTruncated)body.addView(text("Partial scan · "+model.unreadableFolders+" folders unreadable"+(model.scanTruncated?" · scan limit reached":""),12,muted));
+        int rows=(groups.size()+1)/2;
+        int available=(int)(getResources().getDisplayMetrics().heightPixels/getResources().getDisplayMetrics().density)-300;
+        int tileHeight=Math.max(156,Math.min(220,available/Math.max(1,rows)));
+        for(int i=0;i<groups.size();i+=2){
+            LinearLayout row=new LinearLayout(this);row.setBaselineAligned(false);body.addView(row,gap(12));
+            for(int j=i;j<Math.min(i+2,groups.size());j++){
+                var group=groups.get(j);
+                LinearLayout card=column();card.setGravity(Gravity.CENTER_VERTICAL);card.setBackground(Aurora.glass(this,j%2==1));card.setPadding(dp(18),dp(18),dp(18),dp(18));card.setMinimumHeight(dp(tileHeight));
+                ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(group.title(),j%2==0?accent:0xffbaa7ff));icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);card.addView(icon,new LinearLayout.LayoutParams(dp(58),dp(58)));
+                TextView name=text(group.title(),17,ink);name.setTypeface(null,Typeface.BOLD);name.setPadding(0,dp(12),0,dp(4));card.addView(name);
+                TextView bytes=text(size(group.bytes()),23,ink);card.addView(bytes);
+                TextView count=text("",12,muted);card.addView(count);categoryCounts.put(group.title(),count);
+                card.setFocusable(true);card.setContentDescription(group.title()+", "+size(group.bytes()));card.setOnClickListener(v->showGroup(group));
+                LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(j==i?0:dp(6),0,j==i&&i+1<groups.size()?dp(6):0,0);row.addView(card,lp);
+            }
         }
-        MaterialButton details=button("Scan details",false,()->new AlertDialog.Builder(this).setTitle("Scan details").setMessage(model.status+"\nPrimary shared storage only. Categories can overlap; the total counts each file once.").setPositiveButton("Done",null).show());details.setBackgroundTintList(android.content.res.ColorStateList.valueOf(bg));body.addView(details);
         selectedLabel=text("",12,muted);footer.addView(selectedLabel);cleanButton=button("Clean selected",true,this::confirm);footer.addView(cleanButton);selection();
         String requested=getIntent().getStringExtra("category");if(!categoryOpened&&requested!=null){categoryOpened=true;for(var group:groups)if(group.title().equals(requested)){page.post(()->{if(!isFinishing()&&!isDestroyed())showGroup(group);});break;}}
     }
-    private void selection(){if(sheetSelection!=null){sheetSelection.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);sheetSelection.setText(model.selected.size()+" selected · "+size(ReviewRules.selectedBytes(model.files,model.selected)));}for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+(group.files().size()==1?" file":" files")+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
+    private void selection(){if(sheetSelection!=null){sheetSelection.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);sheetSelection.setText(model.selected.size()+" selected · "+size(ReviewRules.selectedBytes(model.files,model.selected)));}for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+(group.files().size()==1?" file":" files")+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;footer.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
     private void confirm(){new AlertDialog.Builder(this).setTitle("Clear "+size(ReviewRules.selectedBytes(model.files,model.selected))+"?").setMessage("You selected "+model.selected.size()+" files. Shared-file deletion is permanent. Originals in duplicate groups will be kept.").setNegativeButton("Keep reviewing",null).setPositiveButton("Confirm cleanup",(d,w)->model.delete()).show();}
     private void showGroup(CleanupGroups.Group group){
         sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackground(Aurora.glass(this,false));content.setPadding(dp(22),dp(16),dp(22),dp(16));
