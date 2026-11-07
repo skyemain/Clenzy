@@ -249,7 +249,7 @@ class SmartActivity:ComponentActivity(){
                 photo.setOnLongClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
                     val options=(listOf("Preview",if(locks.contains(m.uri))"Unlock" else "Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
                     choices("Photo options",options){n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
-                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,!locks.contains(m.uri)) else if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
+                        results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,!locks.contains(m.uri)) else if(n==5 && group!=null){it.retain(group,m);locks.set(m,true)} else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
                     }};true};return cell}}
         if(sorted.isEmpty())label("No items remaining",16)
         grid.adapter=adapter
