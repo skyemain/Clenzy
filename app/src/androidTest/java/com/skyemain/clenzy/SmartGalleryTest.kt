@@ -37,7 +37,7 @@ class SmartGalleryTest {
             InstrumentationRegistry.getInstrumentation().context.assets.open("pet.png").use{input->resolver.openOutputStream(uri).use{input.copyTo(requireNotNull(it))}}
             ActivityScenario.launch(SmartActivity::class.java).use{scenario->
                 scenario.onActivity{activity->
-                    for((field,value) in mapOf("run" to "", "category" to "Review manually","results" to (0 until 12).associate { n -> (if(n==0)m else m.copy(name="Fixture $n")) to Insight(listOf(Finding("Review manually","Test review")),emptyList(),0.0) })){
+                    for((field,value) in mapOf("run" to "", "category" to "Review manually","results" to (0 until 12).associate { n -> (if(n==0)m else m.copy(name="Fixture $n")) to Insight(listOf(Finding("Review manually","Previously auto-protected keeper",true)),emptyList(),0.0) })){
                         SmartActivity::class.java.getDeclaredField(field).apply{isAccessible=true}.set(activity,value)
                     }
                     SmartActivity::class.java.getDeclaredMethod("review").apply{isAccessible=true}.invoke(activity)
@@ -46,6 +46,7 @@ class SmartGalleryTest {
                 scenario.onActivity{activity->
                     val grid=requireNotNull(find(activity.window.decorView,GridView::class.java))
                     assertEquals(3,grid.numColumns)
+                    assertTrue(grid.width>=activity.resources.displayMetrics.widthPixels*0.95)
                     assertEquals(12,grid.count)
                     assertTrue(grid.childCount>=9)
                     assertNull(find(grid,CheckBox::class.java))
@@ -66,6 +67,10 @@ class SmartGalleryTest {
                 UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
                 Thread.sleep(3000)
                 assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(context.getExternalFilesDir(null),"Clenzy-AI-gallery.png")))
+                scenario.onActivity{activity->requireNotNull(find(requireNotNull(find(activity.window.decorView,GridView::class.java)),ImageView::class.java)).performLongClick()}
+                UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
+                Thread.sleep(500)
+                assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(context.getExternalFilesDir(null),"Clenzy-AI-menu.png")))
             }
         }finally{
             MediaLocks(context).set(m,false)

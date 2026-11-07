@@ -64,7 +64,7 @@ public final class HomeActivity extends AppCompatActivity {
         addSetting("Photos & videos","Review media permissions and files","Screenshots",()->open("photos"));
         addSetting("Clenzy cache","Manage this app’s temporary files","Duplicate copies",()->open("cache"));
         addSetting("Apps","Review installed app storage","Apps",this::apps);
-        addSetting("About Clenzy","Version 2.1.1","Home",()->message("Clenzy 2.1.1","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy."));
+        addSetting("About Clenzy","Version 2.1.2","Home",()->message("Clenzy 2.1.2","Offline storage review and cleanup. Other apps’ private cache cannot be cleared by Clenzy."));
         setContentView(scroll);scroll.requestApplyInsets();
     }
     private void addSetting(String title,String subtitle,String symbol,Runnable action){

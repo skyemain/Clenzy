@@ -72,16 +72,16 @@ class SmartActivity:ComponentActivity(){
     override fun onSaveInstanceState(out:Bundle){super.onSaveInstanceState(out);out.putStringArrayList("pending",ArrayList(waiting.map{it.uri}))}
     private fun dp(n:Int)=(resources.displayMetrics.density*n).toInt()
     private fun bytes(n:Long)=Formatter.formatShortFileSize(this,n)
-    private fun screen(title:String){
+    private fun screen(title:String,edgeToEdge:Boolean=false){
         page=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(24),dp(20),dp(20))}
         page.background=Aurora.background();Aurora.window(this)
         setContentView(page)
         ViewCompat.setOnApplyWindowInsetsListener(page){view,insets->
             val bars=insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(dp(20)+bars.left,dp(16)+bars.top,dp(20)+bars.right,dp(12)+bars.bottom)
+            view.setPadding((if(edgeToEdge)0 else dp(20))+bars.left,dp(16)+bars.top,(if(edgeToEdge)0 else dp(20))+bars.right,dp(12)+bars.bottom)
             insets
         }
-        label(title,29).setTypeface(null,Typeface.BOLD)
+        label(title,29).apply{setTypeface(null,Typeface.BOLD);if(edgeToEdge)setPadding(dp(12),dp(5),dp(12),dp(7))}
     }
     private fun label(value:String,size:Int=15)=TextView(this).apply{text=value;setTextColor(Aurora.INK);textSize=size.toFloat();setPadding(0,dp(5),0,dp(7));page.addView(this)}
     private fun button(name:String,action:()->Unit)=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()};page.addView(this)}
@@ -120,7 +120,7 @@ class SmartActivity:ComponentActivity(){
             }
         }
     }
-    private fun protected(m:Medium)=locks.contains(m.uri) || results.getValue(m).findings.any{it.protected}
+    private fun protected(m:Medium)=locks.contains(m.uri)
     private fun dashboard(){
         category=null;screen("AI Smart Clean")
         val candidates=results.filter{(m,i)->!protected(m)&&i.findings.any{it.category!="Review manually"}}.keys
@@ -199,17 +199,17 @@ class SmartActivity:ComponentActivity(){
     }
     private fun thumbnail(row:LinearLayout,m:Medium){val image=ImageView(this);image.scaleType=ImageView.ScaleType.CENTER_CROP;row.addView(image,LinearLayout.LayoutParams(dp(58),dp(58)));thumbLoader(image,m)}
     private fun review(){
-        val cat=category?:return dashboard();screen(cat)
+        val cat=category?:return dashboard();screen(cat,true)
         val rows=results.keys.filter{m->(results.getValue(m).findings.any{it.category==cat} || (cat=="Protected" && locks.contains(m.uri))) && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
         val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedWith(compareBy<Medium>{protected(it)}.thenByDescending{it.size})}
-        val controls=LinearLayout(this);page.addView(controls)
+        val controls=LinearLayout(this);controls.setPadding(dp(8),0,dp(8),0);page.addView(controls)
         fun chip(name:String,action:()->Unit):MaterialButton{
             val control=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()}}
             controls.addView(control,LinearLayout.LayoutParams(0,-2,1f))
             return control
         }
-        chip("Sort"){AlertDialog.Builder(this).setItems(arrayOf("Recommended","Largest","Oldest","Newest")){_,n->sort=n;review()}.show()}
-        chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();AlertDialog.Builder(this).setItems(opts){_,n->filter=opts[n];review()}.show()}
+        chip("Sort"){choices("Sort",arrayOf("Recommended","Largest","Oldest","Newest")){n->sort=n;review()}}
+        chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();choices("Filter",opts){n->filter=opts[n];review()}}
         val grid=GridView(this);grid.numColumns=3;grid.horizontalSpacing=0;grid.verticalSpacing=0;page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
         fun eligible()=rows.filterNot{protected(it)}
         lateinit var allButton:MaterialButton
@@ -237,25 +237,39 @@ class SmartActivity:ComponentActivity(){
                 fun updateSelection(){
                     tint.visibility=if(m in selected)View.VISIBLE else View.GONE
                     photo.isSelected=m in selected
-                    photo.contentDescription=if(protected(m))"Protected photo. Hold for options" else if(m in selected)"Selected photo. Tap to deselect" else "Photo. Tap to select. Hold for options"
+                    photo.contentDescription=if(protected(m))"Locked by you. Hold to unlock" else if(m in selected)"Selected photo. Tap to deselect" else "Photo. Tap to select. Hold for options"
                 }
                 updateSelection()
                 photo.setOnClickListener{
                     if(!submitting && !protected(m)){
                         if(!selected.add(m))selected.remove(m)
                         updateSelection();updateActions()
-                    }else if(protected(m))Toast.makeText(this@SmartActivity,"Protected · hold for options",Toast.LENGTH_SHORT).show()
+                    }else if(protected(m))Toast.makeText(this@SmartActivity,"Locked by you · hold to unlock",Toast.LENGTH_SHORT).show()
                 }
                 photo.setOnLongClickListener{val group=results.getValue(m).findings.firstOrNull{it.category==cat && it.group.isNotEmpty()}?.group
                     val options=(listOf("Preview",if(locks.contains(m.uri))"Unlock" else "Always keep","Not clutter","Hide from suggestions","Review later")+if(group!=null)listOf("Keep this copy") else emptyList()).toTypedArray()
-                    AlertDialog.Builder(this@SmartActivity).setTitle(m.name+"\n"+(if(locks.contains(m.uri))"Locked by you" else results.getValue(m).findings.firstOrNull{it.category==cat}?.reason.orEmpty())).setItems(options){_,n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
+                    choices("Photo options",options){n->if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))} else lifecycleScope.launch{
                         results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{if(n==1)locks.set(m,!locks.contains(m.uri)) else if(n==5 && group!=null)it.retain(group,m) else it.choice(m,options[n]);it.results(run)}};selected.removeAll{protected(it)};review()
-                    }}.show();true};return cell}}
+                    }};true};return cell}}
         if(sorted.isEmpty())label("No items remaining",16)
         grid.adapter=adapter
         allButton=chip("Select all"){val eligible=eligible();if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
         action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}
         updateActions()
+    }
+    private fun choices(title:String,options:Array<String>,choose:(Int)->Unit){
+        val dialog=android.app.Dialog(this)
+        val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(20),dp(20),dp(12));background=Aurora.glass(this@SmartActivity,true)}
+        content.addView(TextView(this).apply{text=title;textSize=23f;setTextColor(Aurora.INK);setTypeface(null,Typeface.BOLD);setPadding(0,0,0,dp(12))})
+        val scroll=ScrollView(this);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(list)
+        options.forEachIndexed{index,name->list.addView(MaterialButton(this).apply{
+            text=name;Aurora.button(this);gravity=Gravity.CENTER_VERTICAL or Gravity.START
+            setOnClickListener{dialog.dismiss();choose(index)}
+        },LinearLayout.LayoutParams(-1,-2))}
+        content.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        content.addView(MaterialButton(this).apply{text="Close";Aurora.button(this);setOnClickListener{dialog.dismiss()}})
+        dialog.setContentView(content);dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+        dialog.show();dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),minOf(dp(100+options.size*62),resources.displayMetrics.heightPixels*3/4))
     }
     private fun confirm(){
         if(Build.VERSION.SDK_INT<30){AlertDialog.Builder(this).setMessage("System Trash requires Android 11 or later. Use Preview to manage media in your gallery.").setPositiveButton("OK",null).show();return}
