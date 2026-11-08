@@ -35,7 +35,7 @@ public final class AuroraDialog {
             button.setOnClickListener(v->{dialog.dismiss();if(listener!=null)listener.onClick(dialog,which);});return button;
         }
         public Dialog create(){
-            Dialog dialog=new Dialog(context);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            Dialog dialog=new androidx.activity.ComponentDialog(context);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
             LinearLayout root=new LinearLayout(context);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(16),dp(20),dp(16));root.setBackground(Aurora.panel(context,true));
             ScrollView scroll=new ScrollView(context){@Override protected void onMeasure(int width,int height){super.onMeasure(width,MeasureSpec.makeMeasureSpec(context.getResources().getDisplayMetrics().heightPixels*3/4,MeasureSpec.AT_MOST));}};
             LinearLayout content=new LinearLayout(context);content.setOrientation(LinearLayout.VERTICAL);

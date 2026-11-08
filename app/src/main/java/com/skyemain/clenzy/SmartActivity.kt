@@ -290,7 +290,11 @@ class SmartActivity:ComponentActivity(){
         submitting=true
         lifecycleScope.launch{
                 val chosen=selected.toList();waiting=withContext(Dispatchers.IO){chosen.filter{m->runCatching{contentResolver.query(Uri.parse(m.uri),arrayOf("_size","date_modified"),null,null,null)?.use{it.moveToFirst()&&it.getLong(0)==m.size&&it.getLong(1)==m.stamp}==true}.getOrDefault(false)}}
-                if(waiting.size!=chosen.size){submitting=false;Toast.makeText(this@SmartActivity,"Media changed. Scan again before cleanup.",Toast.LENGTH_LONG).show();selected.clear();landing();return@launch}
+                if(waiting.size!=chosen.size){
+                    val changed=chosen.filter{it !in waiting}.toSet()
+                    results=results.filterKeys{it !in changed};selected.removeAll(changed);waiting=emptyList();submitting=false;review()
+                    AuroraDialog.Builder(this@SmartActivity).setTitle("Selection updated").setMessage("Some selected files changed or are no longer available. They were removed from this review. Your other results are still available.").setPositiveButton("Done",null).show();return@launch
+                }
                 try{val pi=MediaStore.createTrashRequest(contentResolver,waiting.map{Uri.parse(it.uri)},true);trash.launch(androidx.activity.result.IntentSenderRequest.Builder(pi.intentSender).build())}
                 catch(_:Exception){submitting=false;Toast.makeText(this@SmartActivity,"Android could not open Trash confirmation.",Toast.LENGTH_LONG).show()}
         }

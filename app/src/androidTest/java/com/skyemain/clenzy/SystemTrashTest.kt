@@ -18,10 +18,11 @@ class SystemTrashTest {
     @Test fun androidTrashHandoffAndVerifiedHistory(){
         val context=ApplicationProvider.getApplicationContext<Context>()
         val resolver=context.contentResolver
-        val uri=requireNotNull(resolver.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),ContentValues().apply{put("_display_name","system-trash-fixture.png");put("mime_type","image/png")}))
+        val uri=requireNotNull(resolver.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),ContentValues().apply{put("_display_name","system-trash-fixture.png");put("mime_type","image/png");put(MediaStore.MediaColumns.IS_PENDING,1)}))
         try{
             val bitmap=Bitmap.createBitmap(20,20,Bitmap.Config.ARGB_8888)
             resolver.openOutputStream(uri).use{bitmap.compress(Bitmap.CompressFormat.PNG,100,requireNotNull(it))};bitmap.recycle()
+            resolver.update(uri,ContentValues().apply{put(MediaStore.MediaColumns.IS_PENDING,0)},null,null)
             val medium=resolver.query(uri,arrayOf("_size","date_modified"),null,null,null)!!.use{it.moveToFirst();Medium(uri.toString(),"system-trash-fixture.png",it.getLong(1),it.getLong(0),20,20,0,"Other",false,0,0)}
             context.getSharedPreferences("SmartActivity",0).edit().remove("run").commit()
             val device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
