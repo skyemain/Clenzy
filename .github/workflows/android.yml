@@ -46,10 +46,18 @@ jobs:
           mkdir -p app/src/androidTest/assets
           curl -fL --retry 3 'https://raw.githubusercontent.com/scikit-image/scikit-image/v0.20.0/skimage/data/astronaut.png' -o app/src/androidTest/assets/person.png
           curl -fL --retry 3 'https://raw.githubusercontent.com/scikit-image/scikit-image/v0.20.0/skimage/data/chelsea.png' -o app/src/androidTest/assets/pet.png
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=1280x720:rate=24' \
+            -f lavfi -i 'sine=frequency=440:sample_rate=48000' -t 2 \
+            -c:v libx264 -preset ultrafast -crf 12 -pix_fmt yuv420p -c:a aac \
+            app/src/androidTest/assets/compress-fixture.mp4
       - name: Build and test
         env:
           CLENZY_STORE_PASSWORD: ${{ secrets.CLENZY_STORE_PASSWORD }}
-        run: gradle testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease assembleDebugAndroidTest
+        run: |
+          gradle testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease assembleDebugAndroidTest || {
+            find app/build -name 'lint-results-debug.txt' -exec awk '/Error:/{print}' {} +
+            exit 1
+          }
       - name: Build and validate Play bundle and ARM64 APK
         env:
           CLENZY_STORE_PASSWORD: ${{ secrets.CLENZY_STORE_PASSWORD }}

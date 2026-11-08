@@ -1,9 +1,9 @@
 <resources>
     <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">#77E8FF</item><item name="colorOnPrimary">#080F25</item>
-        <item name="colorSecondary">#B9A3FF</item><item name="colorSurface">#172344</item><item name="colorOnSurface">#F3F7FF</item>
-        <item name="android:colorBackground">#080F25</item><item name="android:textColorPrimary">#F3F7FF</item><item name="android:textColorSecondary">#B6C8E2</item>
-        <item name="android:windowBackground">#080F25</item><item name="android:statusBarColor">#080F25</item><item name="android:navigationBarColor">#080F25</item>
+        <item name="colorPrimary">#C1B6FF</item><item name="colorOnPrimary">#101014</item>
+        <item name="colorSecondary">#C1B6FF</item><item name="colorSurface">#1B1A22</item><item name="colorOnSurface">#F7F5FB</item>
+        <item name="android:colorBackground">#101014</item><item name="android:textColorPrimary">#F7F5FB</item><item name="android:textColorSecondary">#A4A1AF</item>
+        <item name="android:windowBackground">#101014</item><item name="android:statusBarColor">#101014</item><item name="android:navigationBarColor">#101014</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:fontFamily">sans</item><item name="android:windowActionModeOverlay">true</item>
     </style>

@@ -25,6 +25,8 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.effect.Presentation
 import androidx.media3.transformer.Composition
+import androidx.media3.transformer.DefaultEncoderFactory
+import androidx.media3.transformer.VideoEncoderSettings
 import androidx.media3.transformer.EditedMediaItem
 import androidx.media3.transformer.Effects
 import androidx.media3.transformer.ExportException
@@ -148,7 +150,7 @@ class CompressActivity : GalleryToolActivity() {
                     dir
                 }
                 workingDirectory = directory
-                val source = File(directory, "original")
+                val source = File(directory, if (selected.mime == "video/mp4") "original.mp4" else "original-image")
                 val output = File(directory, if (video) "compressed.mp4" else "compressed-image")
                 withContext(Dispatchers.IO) { replacement.snapshot(selected, source) }
                 val draft = Preview(selected, directory, source, output)
@@ -166,6 +168,7 @@ class CompressActivity : GalleryToolActivity() {
     }
 
     private fun encodePhoto(draft: Preview, quality: Quality) {
+        if (Build.VERSION.SDK_INT < 28) throw UnsupportedOperationException("Image decoding requires Android 9")
         val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(draft.original)) { decoder, info, _ ->
             require(!info.isAnimated)
             val width = info.size.width
@@ -205,7 +208,16 @@ class CompressActivity : GalleryToolActivity() {
         require(targetHeight >= 2)
         val media = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(draft.original)))
             .setEffects(Effects(emptyList(), listOf(Presentation.createForHeight(targetHeight)))).build()
-        encoding = Transformer.Builder(this).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
+        val bitrateFraction = when (quality) {
+            Quality.HIGH -> 0.75
+            Quality.BALANCED -> 0.50
+            Quality.SMALL -> 0.30
+        }
+        val bitrate = (draft.original.length() * 8000.0 / source.duration * bitrateFraction)
+            .coerceIn(160_000.0, 12_000_000.0).toInt()
+        val encoder = DefaultEncoderFactory.Builder(this).setRequestedVideoEncoderSettings(
+            VideoEncoderSettings.Builder().setBitrate(bitrate).build()).build()
+        encoding = Transformer.Builder(this).setEncoderFactory(encoder).setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
             .addListener(object : Transformer.Listener {
                 override fun onCompleted(composition: Composition, result: ExportResult) {
                     encoding = null
@@ -270,18 +282,25 @@ class CompressActivity : GalleryToolActivity() {
             AuroraDialog.Builder(this).setTitle("Replace original?")
                 .setMessage("${draft.item.name} will keep the same filename. Compression may reduce quality and remove metadata.")
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Replace original") { _, _ -> requestWrite(draft.item.uri) }.show()
+                .setPositiveButton("Confirm replacement") { _, _ -> requestWrite(draft.item.uri) }.show()
         }
     }
 
-    private fun sampleFrame(file: File, isVideo: Boolean): Bitmap? = runCatching {
-        if (!isVideo) ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, _, _ ->
-            decoder.setTargetSampleSize(2)
-        } else MediaMetadataRetriever().let {
-            try { it.setDataSource(file.path); it.getScaledFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST, 640, 640) }
-            finally { it.release() }
-        }
-    }.getOrNull()
+    private fun sampleFrame(file: File, isVideo: Boolean): Bitmap? {
+        if (Build.VERSION.SDK_INT < 28) return null
+        return runCatching {
+            if (!isVideo) ImageDecoder.decodeBitmap(ImageDecoder.createSource(file)) { decoder, info, _ ->
+                val scale = minOf(1f, 1080f / maxOf(info.size.width, info.size.height))
+                decoder.setTargetSize((info.size.width * scale).toInt().coerceAtLeast(1),
+                    (info.size.height * scale).toInt().coerceAtLeast(1))
+            } else MediaMetadataRetriever().let {
+                try {
+                    it.setDataSource(file.path)
+                    it.getScaledFrameAtTime(0, MediaMetadataRetriever.OPTION_CLOSEST, 640, 640)
+                } finally { it.release() }
+            }
+        }.getOrNull()
+    }
 
     private fun requestWrite(uri: Uri) {
         if (busy || writing || Build.VERSION.SDK_INT < 30) return
@@ -327,7 +346,7 @@ class CompressActivity : GalleryToolActivity() {
                 page.addView(text("${bytes(saved)} saved", 22, Aurora.ACCENT))
                 page.addView(text("${draft.item.name} · Original replaced"))
                 addButton("Done", true) { finish() }
-            } else if (pending != null && result.isSuccess) {
+            } else if (pending != null && result.getOrNull() == MediaReplacement.Result.UNCHANGED) {
                 recovery = null
                 listMedia()
                 message("Original restored.")

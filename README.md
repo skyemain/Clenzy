@@ -79,3 +79,10 @@ Before submitting, configure Play App Signing and confirm whether Google Play an
 - **Foreground service:** A user-started AI scan can continue while the user switches apps. An ongoing notification reports progress. The scan stops when complete or canceled.
 
 These declarations are subject to Google Play review. Restricting access to picked items would change how automatic full-library or shared-storage scans work.
+
+
+## Gallery tools
+
+Settings opens Swipe review directly on accessible gallery photos. Left swipes queue photos for Android Trash confirmation, right swipes keep them, and Undo reverses a pending swipe. The gesture hint runs on the first three photos. AI results hide unclassified items and let users browse detected people, animals, landscapes and objects without preselecting them for cleanup.
+
+On Android 11 and later, Compress media prepares an on-device preview for JPEG, PNG and supported SDR MP4 files. It compares the real output size and replaces the same gallery item and filename only when the output is smaller and the user approves. Quality and embedded metadata can change. A private recovery copy is held until the write is verified. If a replacement is interrupted, reopen Compress media to recover the original.
