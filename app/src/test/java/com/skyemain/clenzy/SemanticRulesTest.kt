@@ -18,10 +18,11 @@ class SemanticRulesTest {
         assertTrue(assess("sale payment confirmation","promotion",true).all{!it.protected && it.category=="Review manually"})
     }
     @Test fun personalAndUnknownDecisions(){
-        assertTrue(assess(topic="people").all{!it.protected && it.category=="Review manually"})
-        assertTrue(assess(topic="pet").all{!it.protected && it.category=="Review manually"})
+        assertTrue(assess(topic="people").all{!it.protected && it.category=="People"})
+        assertTrue(assess(topic="pet").all{!it.protected && it.category=="Animals"})
         assertTrue(assess(topic="greeting",qr=true).all{!it.protected && it.category=="Review manually"})
-        assertEquals("Review manually",assess().single().category)
+        assertEquals("Objects",assess().single().category)
+        assertEquals("Landscapes",assess(topic="landscape").single().category)
     }
     @Test fun screenTextAndSensitiveScreen(){
         assertEquals("Screen photos",assess("File Explorer New tab").first().category)

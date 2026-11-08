@@ -11,6 +11,8 @@
     <application android:label="Clenzy" android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true" android:icon="@drawable/app_icon">
         <service android:name="androidx.work.impl.foreground.SystemForegroundService" android:foregroundServiceType="dataSync" tools:node="merge"/>
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_paths"/></provider>
+        <activity android:name=".SwipeActivity" android:exported="false"/>
+        <activity android:name=".CompressActivity" android:exported="false"/>
         <activity android:name=".SmartActivity" android:exported="false"/>
         <activity android:name=".CleanActivity" android:exported="false"/>
         <activity android:name=".MainActivity" android:exported="false"/>

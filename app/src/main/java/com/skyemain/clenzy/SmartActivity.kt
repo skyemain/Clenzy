@@ -99,7 +99,14 @@ class SmartActivity:ComponentActivity(){
             view.setPadding((if(edgeToEdge)0 else dp(10))+bars.left,dp(16)+bars.top,(if(edgeToEdge)0 else dp(10))+bars.right,dp(12)+bars.bottom)
             insets
         }
-        label(title,29).apply{setTypeface(null,Typeface.BOLD);if(edgeToEdge)setPadding(dp(12),dp(5),dp(12),dp(7))}
+        val header=LinearLayout(this).apply{gravity=Gravity.CENTER_VERTICAL}
+        header.addView(Aurora.iconButton(this,"back","Back"){onBackPressedDispatcher.onBackPressed()},LinearLayout.LayoutParams(dp(44),dp(44)))
+        header.addView(TextView(this).apply{text=title;textSize=24f;setTextColor(Aurora.INK);setTypeface(null,Typeface.BOLD)},
+            LinearLayout.LayoutParams(0,-2,1f))
+        if(category==null)header.addView(Aurora.iconButton(this,"settings","Settings"){
+            startActivity(Intent(this,HomeActivity::class.java).putExtra("settings",true))
+        },LinearLayout.LayoutParams(dp(44),dp(44)))
+        page.addView(header)
     }
     private fun label(value:String,size:Int=15)=TextView(this).apply{text=value;setTextColor(Aurora.INK);textSize=size.toFloat();setPadding(0,dp(5),0,dp(7));page.addView(this)}
     private fun button(name:String,action:()->Unit)=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()};page.addView(this)}
@@ -159,36 +166,63 @@ class SmartActivity:ComponentActivity(){
         category=null;screen("AI Smart Clean")
         val grouped=linkedMapOf<String,MutableList<Medium>>()
         for((item,insight) in results){
+            if(item.video)grouped.getOrPut("Videos"){mutableListOf()}.add(item)
             for(finding in insight.findings.distinctBy{it.category}){
-                grouped.getOrPut(finding.category){mutableListOf()}.add(item)
+                if(finding.category!="Review manually")
+                    grouped.getOrPut(finding.category){mutableListOf()}.add(item)
             }
         }
         val count = java.text.NumberFormat.getIntegerInstance().format(scannedCount)
         label(if (scannedCount == 1) "$count item scanned" else "$count items scanned", 14)
             .setTextColor(Aurora.MUTED)
-        val scroll=ScrollView(this);val cards=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
-        scroll.addView(cards);page.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val priority=listOf("Duplicate photos","Similar photos","Screenshots","Shared videos")
-        val names=grouped.keys.sortedWith(compareBy<String>{priority.indexOf(it).let{n->if(n<0)99 else n}}.thenBy{it})
-        for(pair in names.chunked(2)){
-            val row=LinearLayout(this);cards.addView(row)
-            for(cat in pair){
-                val members=grouped.getValue(cat)
-                val card=LinearLayout(this).apply{
-                    orientation=LinearLayout.VERTICAL
-                    background=Aurora.glass(this@SmartActivity,false)
-                    clipToOutline=true;isFocusable=true
-                    setOnClickListener{category=cat;filter="All";review()}
+        val scroll=ScrollView(this)
+        val cards=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
+        scroll.addView(cards)
+        page.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
+        val priority=listOf("Similar photos","Duplicate photos","Chat screenshots","Screen photos","Videos")
+        val cleanup=grouped.keys.filterNot{it in SemanticRules.subjects}.sortedWith(
+            compareBy<String>{priority.indexOf(it).let{n->if(n<0)99 else n}}.thenBy{it})
+        fun tiles(names: List<String>) {
+            for(pair in names.chunked(2)){
+                val row=LinearLayout(this)
+                cards.addView(row)
+                for(cat in pair){
+                    val members=grouped.getValue(cat)
+                    val card=FrameLayout(this).apply{
+                        background=Aurora.glass(this@SmartActivity,false)
+                        clipToOutline=true
+                        isFocusable=true
+                        contentDescription="$cat, ${members.size} items"
+                        setOnClickListener{category=cat;filter="All";selected.clear();review()}
+                    }
+                    val image=ImageView(this).apply{scaleType=ImageView.ScaleType.CENTER_CROP}
+                    card.addView(image,FrameLayout.LayoutParams(-1,-1))
+                    thumbLoader(image,members.first())
+                    val caption=TextView(this).apply{
+                        text="$cat\n${members.size} ${if(members.size==1) "item" else "items"}"
+                        textSize=14f
+                        setTextColor(Aurora.INK)
+                        setTypeface(null,Typeface.BOLD)
+                        setPadding(dp(12),dp(22),dp(12),dp(10))
+                        background=android.graphics.drawable.GradientDrawable(
+                            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,intArrayOf(0x00000000,0xf2101014.toInt()))
+                    }
+                    card.addView(caption,FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM))
+                    row.addView(card,LinearLayout.LayoutParams(0,dp(162),1f).apply{setMargins(dp(4),dp(8),dp(4),0)})
                 }
-                val image=ImageView(this).apply{scaleType=ImageView.ScaleType.CENTER_CROP;setBackgroundColor(0xff405d52.toInt());setImageResource(android.R.drawable.ic_menu_gallery)}
-                card.addView(image,LinearLayout.LayoutParams(-1,dp(132)));thumbLoader(image,members.first())
-                val name=TextView(this).apply{text=cat;textSize=16f;setTypeface(null,Typeface.BOLD);setPadding(dp(14),dp(10),dp(14),0)}
-                card.addView(name)
-                card.addView(TextView(this).apply{text="${members.size} files · ${bytes(members.sumOf{it.size})}";setPadding(dp(14),dp(4),dp(14),dp(14))})
-                row.addView(card,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(3),dp(10),dp(3),0)})
+                if(pair.size==1)row.addView(Space(this),LinearLayout.LayoutParams(0,1,1f))
             }
-            if(pair.size==1)row.addView(Space(this),LinearLayout.LayoutParams(0,1,1f))
         }
+        tiles(cleanup)
+        val subjects=SemanticRules.subjects.filter{it in grouped}
+        if(subjects.isNotEmpty()){
+            cards.addView(TextView(this).apply{
+                text="Browse by subject";textSize=16f;setTextColor(Aurora.INK)
+                setTypeface(null,Typeface.BOLD);setPadding(dp(4),dp(18),0,dp(4))
+            })
+            tiles(subjects)
+        }
+        if(grouped.isEmpty())label("No matching categories found.",16)
         if(Build.VERSION.SDK_INT>=33 && !(granted(READ_MEDIA_IMAGES)&&granted(READ_MEDIA_VIDEO))){
             button("Limited media access · Manage"){startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+packageName)))}
         }
@@ -225,7 +259,12 @@ class SmartActivity:ComponentActivity(){
     private fun thumbnail(row:LinearLayout,m:Medium){val image=ImageView(this);image.scaleType=ImageView.ScaleType.CENTER_CROP;row.addView(image,LinearLayout.LayoutParams(dp(58),dp(58)));thumbLoader(image,m)}
     private fun review(){
         val cat=category?:return dashboard();screen(cat,true)
-        val rows=results.keys.filter{m->results.getValue(m).findings.any{it.category==cat} && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
+        val rows=results.keys.filter{m->((cat=="Videos" && m.video)||results.getValue(m).findings.any{it.category==cat}) && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
+        if(cat in listOf("Similar photos","Duplicate photos")){compareGroups(cat,rows);return}
+        if(cat=="Videos")button("Compress a video"){
+            startActivity(Intent(this,CompressActivity::class.java).putExtra("video",true))
+        }
+        val columns=if(rows.isNotEmpty() && rows.all{it.video})2 else 3
         val sorted=when(sort){1->rows.sortedBy{it.stamp};2->rows.sortedByDescending{it.stamp};else->rows.sortedByDescending{it.size}}
         val controls=LinearLayout(this);controls.setPadding(dp(8),0,dp(8),0);page.addView(controls)
         fun chip(name:String,action:()->Unit):MaterialButton{
@@ -235,7 +274,7 @@ class SmartActivity:ComponentActivity(){
         }
         chip("Sort"){choices("Sort",arrayOf("Largest","Oldest","Newest")){n->sort=n;review()}}
         chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();choices("Filter",opts){n->filter=opts[n];review()}}
-        val grid=GridView(this);grid.numColumns=3;grid.horizontalSpacing=0;grid.verticalSpacing=0;page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
+        val grid=GridView(this);grid.numColumns=columns;grid.horizontalSpacing=0;grid.verticalSpacing=0;page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
         fun eligible()=rows
         lateinit var allButton:MaterialButton
         lateinit var action:MaterialButton
@@ -249,7 +288,7 @@ class SmartActivity:ComponentActivity(){
         val adapter=object:BaseAdapter(){override fun getCount()=sorted.size;override fun getItem(p:Int)=sorted[p];override fun getItemId(p:Int)=p.toLong()
             override fun getView(p:Int,v:View?,parent:ViewGroup):View{val m=sorted[p]
                 val cell=FrameLayout(this@SmartActivity)
-                val edge=((resources.displayMetrics.widthPixels-page.paddingLeft-page.paddingRight)/3).coerceAtLeast(1)
+                val edge=((resources.displayMetrics.widthPixels-page.paddingLeft-page.paddingRight)/columns).coerceAtLeast(1)
                 cell.layoutParams=AbsListView.LayoutParams(-1,edge)
                 val photo=ImageView(this@SmartActivity).apply{
                     scaleType=ImageView.ScaleType.CENTER_CROP
@@ -259,6 +298,13 @@ class SmartActivity:ComponentActivity(){
                 thumbLoader(photo,m,true)
                 val tint=View(this@SmartActivity).apply{setBackgroundColor(0x6677aaff);isClickable=false;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
                 cell.addView(tint,FrameLayout.LayoutParams(-1,-1))
+                if(m.video)cell.addView(TextView(this@SmartActivity).apply{
+                    text="${bytes(m.size)} · ${m.duration/60000}:${(m.duration/1000%60).toString().padStart(2,'0')}"
+                    setTextColor(Aurora.INK);textSize=12f
+                    setPadding(dp(7),dp(4),dp(7),dp(4))
+                    background=Aurora.surface(this@SmartActivity,Aurora.BASE,8)
+                },FrameLayout.LayoutParams(-2,-2,Gravity.BOTTOM or Gravity.START).apply{setMargins(dp(6),0,0,dp(6))})
+
                 fun updateSelection(){
                     tint.visibility=if(m in selected)View.VISIBLE else View.GONE
                     photo.isSelected=m in selected
@@ -282,9 +328,82 @@ class SmartActivity:ComponentActivity(){
         if(sorted.isEmpty())label("No items remaining",16)
         grid.adapter=adapter
         allButton=chip("Select all"){val eligible=eligible();if(selected.containsAll(eligible))selected.removeAll(eligible.toSet()) else selected.addAll(eligible);adapter.notifyDataSetChanged();updateActions()}
-        action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}
+        action=button("Move to Trash"){if(selected.isNotEmpty()&&!submitting)confirm()}.also{Aurora.button(it,true)}
         updateActions()
     }
+    private fun compareGroups(cat: String, rows: List<Medium>) {
+        val grouped=rows.groupBy{m->results.getValue(m).findings.first{it.category==cat}.group}
+            .values.filter{it.size>=2}
+            .map{group->group.sortedWith(compareByDescending<Medium>{it.width.toLong()*it.height}
+                .thenByDescending{results.getValue(it).sharp}.thenBy{it.stamp})}
+        val footer=MaterialButton(this).apply{Aurora.button(this,true);setOnClickListener{if(!submitting)confirm()}}
+        fun update(){
+            footer.text="Move to Trash (${selected.size})"
+            footer.isEnabled=selected.isNotEmpty() && !submitting
+        }
+        val extras=button("Select extras") {
+            if(!submitting){
+                selected.clear()
+                grouped.forEach{selected.addAll(it.drop(1))}
+                review()
+            }
+        }
+        extras.isEnabled=grouped.isNotEmpty() && !submitting
+        if(grouped.isEmpty())label("No matching groups left to review")
+        val list=ListView(this)
+        list.dividerHeight=dp(8)
+        list.adapter=object:BaseAdapter(){
+            override fun getCount()=grouped.size
+            override fun getItem(position:Int)=grouped[position]
+            override fun getItemId(position:Int)=position.toLong()
+            override fun getView(position:Int,convertView:View?,parent:ViewGroup):View{
+                val group=getItem(position)
+                val row=LinearLayout(this@SmartActivity).apply{
+                    orientation=LinearLayout.VERTICAL
+                    background=Aurora.glass(this@SmartActivity,false)
+                    setPadding(dp(10),dp(6),dp(10),dp(8))
+                }
+                row.addView(TextView(this@SmartActivity).apply{
+                    text="Group ${position+1} · ${group.size} photos"
+                    setTextColor(Aurora.MUTED);setPadding(0,dp(4),0,dp(5))
+                })
+                val strip=LinearLayout(this@SmartActivity)
+                row.addView(HorizontalScrollView(this@SmartActivity).apply{addView(strip)})
+                group.forEachIndexed{index,medium->
+                    val box=FrameLayout(this@SmartActivity)
+                    val image=ImageView(this@SmartActivity).apply{scaleType=ImageView.ScaleType.FIT_CENTER}
+                    box.addView(image,FrameLayout.LayoutParams(-1,-1))
+                    thumbLoader(image,medium,true)
+                    val badge=TextView(this@SmartActivity).apply{
+                        setTextColor(Aurora.INK);textSize=12f;setPadding(dp(5),dp(4),dp(5),dp(4))
+                        background=Aurora.surface(this@SmartActivity,Aurora.BASE,7)
+                    }
+                    box.addView(badge,FrameLayout.LayoutParams(-2,-2,Gravity.TOP or Gravity.START))
+                    fun updatePhoto(){
+                        badge.text=if(medium in selected)"Selected" else if(index==0)"Suggested keep" else bytes(medium.size)
+                        box.contentDescription=if(medium in selected)"Selected photo. Tap to deselect"
+                            else if(index==0)"Suggested keep. Tap to select" else "Photo. Tap to select"
+                        image.alpha=if(medium in selected)0.58f else 1f
+                    }
+                    box.setOnClickListener{
+                        if(!submitting){if(!selected.add(medium))selected.remove(medium);updatePhoto();update()}
+                    }
+                    updatePhoto()
+                    val edge=(resources.displayMetrics.widthPixels-dp(48))/2
+                    strip.addView(box,LinearLayout.LayoutParams(edge,edge).apply{rightMargin=dp(4)})
+                }
+                row.addView(MaterialButton(this@SmartActivity).apply{
+                    text="Keep all";Aurora.button(this)
+                    setOnClickListener{if(!submitting){selected.removeAll(group.toSet());notifyDataSetChanged();update()}}
+                })
+                return row
+            }
+        }
+        page.addView(list,LinearLayout.LayoutParams(-1,0,1f))
+        page.addView(footer)
+        update()
+    }
+
     private fun choices(title:String,options:Array<String>,choose:(Int)->Unit){
         AuroraDialog.Builder(this).setTitle(title).setItems(options){_,index->choose(index)}.setNegativeButton("Close",null).show()
     }

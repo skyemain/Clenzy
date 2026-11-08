@@ -37,7 +37,7 @@ class SemanticModelTest {
                         val serialMs=android.os.SystemClock.elapsedRealtime()-serialStart
                         android.util.Log.i("ClenzyBenchmark","$file serial=$serialMs ms overlapped=$parallelMs ms")
                         assertEquals(serial,insight)
-                        assertTrue("Personal media stays reviewable: "+file+" "+insight.findings,insight.findings.all{!it.protected && it.category=="Review manually"})
+                        assertTrue("Personal media stays reviewable: "+file+" "+insight.findings,insight.findings.all{!it.protected && it.category in setOf("Review manually",if(expected=="people")"People" else "Animals")})
                     }finally{resolver.delete(uri,null,null)}
                 }finally{bitmap.recycle()}
             }

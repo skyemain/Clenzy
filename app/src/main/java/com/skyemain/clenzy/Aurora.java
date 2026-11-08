@@ -9,39 +9,30 @@ import android.view.View;
 import com.google.android.material.button.MaterialButton;
 
 public final class Aurora {
-    public static final int INK=0xfff3f7ff, MUTED=0xffb6c8e2, BASE=0xff080f25, SURFACE=0xff172344, ACCENT=0xff77e8ff;
+    public static final int INK=0xfff7f5fb, MUTED=0xffa4a1af, BASE=0xff101014, SURFACE=0xff1b1a22, ACCENT=0xffc1b6ff;
     private Aurora(){}
     public static int dp(Context c,int n){return Math.round(n*c.getResources().getDisplayMetrics().density);}
     public static void window(Activity a){a.getWindow().setStatusBarColor(BASE);a.getWindow().setNavigationBarColor(BASE);a.getWindow().getDecorView().setSystemUiVisibility(0);}
-    public static Drawable background(){return new Drawable(){
-        final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-        @Override public void draw(Canvas c){Rect b=getBounds();float w=b.width(),h=b.height();c.drawColor(BASE);
-            paint.setShader(new RadialGradient(w*.12f,h*.18f,w*.85f,new int[]{0xff104f6c,0x00080f25},null,Shader.TileMode.CLAMP));c.drawRect(b,paint);
-            paint.setShader(new RadialGradient(w*.95f,h*.55f,w*.9f,new int[]{0xff392561,0x00080f25},null,Shader.TileMode.CLAMP));c.drawRect(b,paint);paint.setShader(null);
-        }
-        @Override public void setAlpha(int a){} @Override public void setColorFilter(ColorFilter f){} @Override public int getOpacity(){return PixelFormat.OPAQUE;}
-    };}
-    public static Drawable glass(Context context,boolean ai){return new Drawable(){
-        final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
-        @Override public void draw(Canvas canvas){
-            RectF r=new RectF(getBounds());r.inset(1,1);float radius=dp(context,32);
-            p.setStyle(Paint.Style.FILL);p.setShader(new LinearGradient(r.left,r.top,r.right,r.bottom,
-                ai?new int[]{0x664f5996,0x38352e68,0x88202b4a}:new int[]{0x665a9eac,0x382e5074,0x88182640},null,Shader.TileMode.CLAMP));
-            canvas.drawRoundRect(r,radius,radius,p);
-            p.setShader(new LinearGradient(r.left,r.top,r.left,r.bottom,new int[]{0x22ffffff,0x00ffffff},new float[]{0,0.55f},Shader.TileMode.CLAMP));canvas.drawRoundRect(r,radius,radius,p);
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(context,1));p.setShader(new LinearGradient(r.left,r.top,r.right,r.bottom,new int[]{0x99d1faff,0x225c7ba8,0x556c92c4},null,Shader.TileMode.CLAMP));canvas.drawRoundRect(r,radius,radius,p);p.setShader(null);
-        }
-        @Override public void getOutline(Outline outline){outline.setRoundRect(getBounds(),dp(context,32));}
-        @Override public void setAlpha(int a){} @Override public void setColorFilter(ColorFilter f){} @Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
-    };}
-    public static Drawable panel(Context context,boolean ai){
-        GradientDrawable backing=new GradientDrawable();backing.setColor(0xff101b35);backing.setCornerRadius(dp(context,32));
-        return new LayerDrawable(new Drawable[]{backing,glass(context,ai)});
+    public static Drawable background(){return new ColorDrawable(BASE);}
+    public static GradientDrawable surface(Context context,int color,int radius) {
+        GradientDrawable shape=new GradientDrawable();
+        shape.setColor(color);
+        shape.setCornerRadius(dp(context,radius));
+        return shape;
     }
-    public static void button(MaterialButton b){
-        b.setAllCaps(false);b.setMinHeight(dp(b.getContext(),48));b.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{MUTED,INK}));
-        b.setBackgroundTintList(null);b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x4477e8ff),glass(b.getContext(),false),null));
-        b.setPadding(dp(b.getContext(),12),dp(b.getContext(),8),dp(b.getContext(),12),dp(b.getContext(),8));
+    public static Drawable glass(Context context,boolean ai){
+        return surface(context,ai?0xff242033:SURFACE,20);
+    }
+    public static Drawable panel(Context context,boolean ai){return glass(context,ai);}
+    public static void button(MaterialButton b){button(b,false);}
+    public static void button(MaterialButton b,boolean primary){
+        Context context=b.getContext();
+        b.setAllCaps(false);
+        b.setMinHeight(dp(context,48));
+        b.setTextColor(new ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{MUTED,primary?0xff141026:INK}));
+        b.setBackgroundTintList(null);
+        b.setBackground(new RippleDrawable(ColorStateList.valueOf(0x447e67ba),surface(context,primary?ACCENT:0xff25232d,13),null));
+        b.setPadding(dp(context,12),dp(context,8),dp(context,12),dp(context,8));
     }
     public static android.widget.ImageButton iconButton(Context c,String icon,String description,Runnable action){
         android.widget.ImageButton b=new android.widget.ImageButton(c);b.setImageDrawable(new LineIcon(icon,INK));b.setContentDescription(description);b.setPadding(dp(c,12),dp(c,12),dp(c,12),dp(c,12));b.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);

@@ -6,19 +6,30 @@ internal object SemanticRules {
     fun isDocumentEvidence(ocr:String,code:Boolean):Boolean = code || SmartRules.important.containsMatchIn(ocr.lowercase(Locale.ROOT)) ||
         Regex("रसीद|चालान|भुगतान|खाता संख्या|आधार|पासपोर्ट|चिकित्सा|आरक्षण").containsMatchIn(ocr)
 
+    val subjects = listOf("People", "Animals", "Landscapes", "Objects")
+    private val subjectTopics = mapOf("people" to "People", "pet" to "Animals",
+        "landscape" to "Landscapes", "other" to "Objects")
+
+    private fun screenText(text: String) = Regex("""\b(taskbar|task manager|file explorer|new tab|localhost|recycle bin|command prompt)\b""")
+        .findAll(text).map { it.value }.distinct().count() >= 2
+
     fun assess(m:Medium,age:Long,ocr:String,face:Boolean,code:Boolean,labels:Set<String>,quality:String?,matches:List<SemanticMatch>):List<Finding>{
         val text=ocr.lowercase(Locale.ROOT)
         val reliable=matches.filter{it.reliable}
         val topics=reliable.map{it.label}.toSet()
         val document=isDocumentEvidence(ocr,code) || topics.any{it in setOf("identity","receipt","document")}
         if(document)return listOf(Finding("Review manually",if(code)"Contains a QR code or barcode" else "Document or payment information detected",false))
-        val personal=matches.any{it.label in setOf("people","pet","landscape","food") && it.score>=0.04}
-        if(personal)return listOf(Finding("Review manually","Visual model suggests personal memories or everyday photographs",false))
         val graphical=topics.any{it in setOf("promotion","greeting","meme","event","shopping","screen","chat")}
-        if(face && !graphical)return listOf(Finding("Review manually","Person detected without a clear graphic or screen context",false))
+        if(!m.video && m.source!="Screenshot" && !graphical && !screenText(text)){
+            val subject=topics.firstNotNullOfOrNull { subjectTopics[it] }
+                ?: if(face && !graphical) "People" else null
+            if(subject!=null) return listOf(Finding(subject,"On-device subject match"))
+        }
+        val personal=matches.any{it.label in setOf("people","pet","landscape","food") && it.score>=0.04}
+        if(personal || (face && !graphical))return listOf(Finding("Review manually","Possible personal original"))
         val corroborated=if(m.video) reliable.groupingBy{it.label}.eachCount().filterValues{it>=2}.keys else topics
         val result=mutableListOf<Finding>()
-        val screenText=Regex("""\b(taskbar|task manager|file explorer|new tab|localhost|recycle bin|command prompt)\b""").findAll(text).map{it.value}.distinct().count()>=2
+        val screenText=screenText(text)
         val offers=SmartRules.promo.findAll(text).map{it.value}.distinct().count()
 
         if("screen" in corroborated || screenText)result+=Finding(if(m.video)"Screen recordings" else "Screen photos","Visual model recognizes a screen or software interface · review")

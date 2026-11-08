@@ -51,11 +51,11 @@ public final class AuroraDialog {
             button.setMinimumHeight(dp(48));
             button.setPadding(dp(12), dp(8), dp(12), dp(8));
             button.setGravity(Gravity.CENTER_VERTICAL | (row ? Gravity.START : Gravity.CENTER_HORIZONTAL));
-            button.setTextColor(primary ? 0xff14202b : row ? Aurora.INK : 0xffb7dbff);
+            button.setTextColor(primary ? 0xff141026 : row ? Aurora.INK : Aurora.ACCENT);
             button.setStateListAnimator(null);
             button.setBackgroundTintList(null);
             button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x2877baff),
-                surface(primary ? 0xffb7dbff : Color.TRANSPARENT, 12), surface(Color.WHITE, 12)));
+                surface(primary ? Aurora.ACCENT : Color.TRANSPARENT, 12), surface(Color.WHITE, 12)));
             button.setOnClickListener(v -> {
                 dialog.dismiss();
                 if (listener != null) listener.onClick(dialog, which);
@@ -74,7 +74,7 @@ public final class AuroraDialog {
                             : Math.min(limit, MeasureSpec.getSize(height)), MeasureSpec.AT_MOST));
                 }
             };
-            scroll.setBackground(surface(0xff1c2430, 20));
+            scroll.setBackground(surface(0xff201e29, 20));
             LinearLayout content = new LinearLayout(context);
             content.setOrientation(LinearLayout.VERTICAL);
             content.setPadding(dp(16), dp(14), dp(16), dp(12));
