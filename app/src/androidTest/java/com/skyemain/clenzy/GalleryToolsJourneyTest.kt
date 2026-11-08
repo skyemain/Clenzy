@@ -15,6 +15,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.OutputStream
+import java.util.regex.Pattern
 
 @RunWith(AndroidJUnit4::class)
 class GalleryToolsJourneyTest {
@@ -46,19 +47,49 @@ class GalleryToolsJourneyTest {
         requireNotNull(device.wait(Until.findObject(selector), timeout)) { "Missing ${selector}" }.click()
     }
 
-    @Test fun swipeOpensPhotosDirectlyAndUndoClearsQueue() {
+    private fun swipePhoto(left: Boolean) {
+        val photo = requireNotNull(device.wait(Until.findObject(By.desc("Gallery photo")), 6000))
+        val area = photo.visibleBounds
+        val start = area.left + area.width() * (if (left) 3 else 1) / 4
+        val end = area.left + area.width() * (if (left) 1 else 3) / 4
+        assertTrue(device.swipe(start, area.centerY(), end, area.centerY(), 15))
+    }
+
+    @Test fun swipeActsOnCurrentPhotoWithoutClenzyConfirmation() {
         instrumentation.uiAutomation.grantRuntimePermission(context.packageName, Manifest.permission.READ_MEDIA_IMAGES)
-        val photo = photo("Swipe Journey.png")
+        val older = photo("Swipe Journey A.png")
+        val newest = photo("Swipe Journey B.png")
         try {
+            val ordered = galleryItems(context, false)
+            assertTrue(ordered[0].uri in listOf(older, newest) && ordered[1].uri in listOf(older, newest))
             ActivityScenario.launch(SwipeActivity::class.java).use {
-                click(By.text("← Trash"))
-                assertTrue(device.wait(Until.hasObject(By.text("Review Trash · 1")), 5000))
-                assertFalse(TrashState.isTrashed(context.contentResolver, photo.toString()))
-                click(By.text("Undo"))
-                assertTrue(device.wait(Until.gone(By.text("Review Trash · 1")), 5000))
-                assertTrue(device.hasObject(By.text("Keep →")))
+                assertFalse(device.hasObject(By.text("← Trash")))
+                assertFalse(device.hasObject(By.text("Keep →")))
+                swipePhoto(left = false)
+                assertTrue(device.wait(Until.hasObject(By.textStartsWith("1 of ")), 5000))
+                assertFalse(TrashState.isTrashed(context.contentResolver, ordered[0].uri.toString()))
+
+                swipePhoto(left = true)
+                val deny = By.text(Pattern.compile("(?i)(deny|cancel)"))
+                val prompt = requireNotNull(device.wait(Until.findObject(deny), 5000))
+                assertNotEquals(context.packageName, prompt.applicationPackage)
+                prompt.click()
+                assertTrue(device.wait(Until.hasObject(By.text("Photo kept in the gallery")), 5000))
+                assertFalse(TrashState.isTrashed(context.contentResolver, ordered[1].uri.toString()))
+
+                swipePhoto(left = true)
+                click(By.text(Pattern.compile("(?i)(allow|trash|move to trash)")))
+                assertTrue(device.wait(Until.hasObject(By.text("Moved to Trash")), 8000))
+                assertTrue(TrashState.isTrashed(context.contentResolver, ordered[1].uri.toString()))
+                assertFalse(TrashState.isTrashed(context.contentResolver, ordered[0].uri.toString()))
+                assertFalse(device.hasObject(By.textStartsWith("Review Trash")))
             }
-        } finally { context.contentResolver.delete(photo, null, null) }
+        } finally {
+            val args = android.os.Bundle().apply {
+                putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_INCLUDE)
+            }
+            listOf(older, newest).forEach { context.contentResolver.delete(it, args) }
+        }
     }
 
     @Test fun photoPreviewShowsRealSavingsAndKeepsSourceUntilConfirmed() {
@@ -67,7 +98,7 @@ class GalleryToolsJourneyTest {
         try {
             val initial = context.contentResolver.openInputStream(photo)!!.use { it.readBytes() }
             ActivityScenario.launch(CompressActivity::class.java).use {
-                click(By.textStartsWith("Clenzy compression journey.png · "))
+                click(By.descStartsWith("Clenzy compression journey.png · "))
                 click(By.text("Smallest"))
                 click(By.text("Replace original"), 15000)
                 assertTrue(device.wait(Until.hasObject(By.text("Replace original?")), 5000))
@@ -86,7 +117,7 @@ class GalleryToolsJourneyTest {
         try {
             ActivityScenario.launch(CompressActivity::class.java).use {
                 click(By.text("Videos"))
-                click(By.textStartsWith("Clenzy video journey.mp4 · "))
+                click(By.descStartsWith("Clenzy video journey.mp4 · "))
                 click(By.text("Smallest"))
                 assertTrue("Video preview should pass size, duration and audio checks",
                     device.wait(Until.hasObject(By.text("Replace original")), 45000))

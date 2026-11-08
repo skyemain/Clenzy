@@ -10,11 +10,15 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.view.Gravity
 import android.view.View
-import android.widget.ArrayAdapter
+import android.view.ViewGroup
+import android.widget.AbsListView
+import android.widget.BaseAdapter
+import android.widget.GridView
+import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.ListView
 import android.widget.SeekBar
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.IntentSenderRequest
@@ -34,6 +38,7 @@ import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -120,11 +125,61 @@ class CompressActivity : GalleryToolActivity() {
                 page.addView(text(if (files.isFailure) "Media could not be read." else "No supported files found."))
                 return@launch
             }
-            val list = ListView(this@CompressActivity)
-            list.adapter = ArrayAdapter(this@CompressActivity, android.R.layout.simple_list_item_1,
-                supported.map { "${it.name} · ${bytes(it.size)}" })
-            list.setOnItemClickListener { _, _, position, _ -> chooseQuality(supported[position]) }
-            page.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+            val grid = GridView(this@CompressActivity).apply {
+                numColumns = 2
+                horizontalSpacing = dp(8)
+                verticalSpacing = dp(8)
+                stretchMode = GridView.STRETCH_COLUMN_WIDTH
+                adapter = object : BaseAdapter() {
+                    override fun getCount() = supported.size
+                    override fun getItem(position: Int) = supported[position]
+                    override fun getItemId(position: Int) = position.toLong()
+                    override fun getView(position: Int, recycled: View?, parent: ViewGroup): View {
+                        val tile = recycled as? MediaTile ?: MediaTile()
+                        tile.bind(getItem(position))
+                        return tile
+                    }
+                }
+            }
+            page.addView(grid, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+    }
+
+    private inner class MediaTile : FrameLayout(this@CompressActivity) {
+        private val thumbnail = photo().apply { scaleType = ImageView.ScaleType.CENTER_CROP }
+        private val badge = text("", 12).apply {
+            background = Aurora.surface(this@CompressActivity, Aurora.BASE, 8)
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+        }
+        private var loading: Job? = null
+
+        init {
+            val width = (resources.displayMetrics.widthPixels - dp(36)) / 2
+            layoutParams = AbsListView.LayoutParams(-1, width.coerceAtLeast(dp(92)))
+            background = Aurora.glass(this@CompressActivity, false)
+            clipToOutline = true
+            isFocusable = true
+            addView(thumbnail, LayoutParams(-1, -1))
+            addView(badge, LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.START).apply {
+                setMargins(dp(8), 0, dp(8), dp(8))
+            })
+        }
+
+        fun bind(file: GalleryItem) {
+            loading?.cancel()
+            thumbnail.setImageDrawable(LineIcon(if (file.mime == "video/mp4") "Videos" else "Screenshots", Aurora.MUTED))
+            badge.text = if (file.mime == "video/mp4") "▶  ${bytes(file.size)}" else bytes(file.size)
+            contentDescription = "${file.name} · ${bytes(file.size)}"
+            setOnClickListener { chooseQuality(file) }
+            loading = lifecycleScope.launch {
+                val bitmap = withContext(Dispatchers.IO) { galleryPreview(this@CompressActivity, file, 400) }
+                if (bitmap != null) thumbnail.setImageBitmap(bitmap)
+            }
+        }
+
+        override fun onDetachedFromWindow() {
+            loading?.cancel()
+            super.onDetachedFromWindow()
         }
     }
 

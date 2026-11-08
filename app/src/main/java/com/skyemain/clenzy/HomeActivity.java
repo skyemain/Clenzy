@@ -72,7 +72,20 @@ public final class HomeActivity extends AppCompatActivity {
     private void accessSettings(){
         AuroraDialog.Builder dialog=new AuroraDialog.Builder(this).setTitle("Privacy & access").setMessage(accessSummary()+"\n\nAll files access covers shared storage. Other apps’ private data remains separate.");
         if(Build.VERSION.SDK_INT>=30)dialog.setPositiveButton("Shared files access",(d,w)->{try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}});
+        if(Build.VERSION.SDK_INT>=31)dialog.setNeutralButton("Swipe without prompts",(d,w)->mediaManagement());
         dialog.setNeutralButton("Photos & videos permission",(d,w)->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())))).setNegativeButton("Done",null).show();
+    }
+    private void mediaManagement(){
+        if(Build.VERSION.SDK_INT<31)return;
+        AuroraDialog.Builder dialog=new AuroraDialog.Builder(this).setTitle("Swipe without prompts")
+            .setMessage("Android can allow Clenzy to move photos to Trash without asking each time. Turn on Clenzy in Media management apps. Android may also require All files access. A left swipe moves only the photo on screen to the system Trash.");
+        dialog.setPositiveButton("Open Android settings",(d,w)->{
+            try {
+                startActivity(new Intent(Settings.ACTION_REQUEST_MANAGE_MEDIA,Uri.parse("package:"+getPackageName())));
+            } catch(ActivityNotFoundException e) {
+                message("Media management unavailable","Android will ask before moving each photo to Trash.");
+            }
+        }).setNegativeButton("Close",null).show();
     }
     private void storageSummary(){
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes();
