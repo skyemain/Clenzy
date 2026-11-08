@@ -29,11 +29,11 @@ public class HomeFlowTest {
    android.content.Intent intent=new android.content.Intent(context,MainActivity.class).putExtra("tool","cache");
    try(var scenario=ActivityScenario.<MainActivity>launch(intent)){
     UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-    var clean=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("CLEAN SELECTED.*")).enabled(true)),10000);assertNotNull(clean);
+    var clean=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("Clean selected.*")).enabled(true)),10000);assertNotNull(clean);
     device.waitForIdle();clean.click();
     var confirm=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("(?i)Continue"))),5000);assertNotNull(confirm);confirm.click();
-    assertTrue(device.wait(Until.hasObject(By.text("CLEANING COMPLETE")),10000));assertFalse(fixture.exists());
-    var done=device.findObject(By.text("DONE"));assertNotNull(done);done.click();
+    assertTrue(device.wait(Until.hasObject(By.text("Cleanup complete")),10000));assertFalse(fixture.exists());
+    var done=device.findObject(By.text("Done"));assertNotNull(done);done.click();
    }
   }finally{fixture.delete();}
  }

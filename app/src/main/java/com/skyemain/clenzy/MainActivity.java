@@ -66,11 +66,11 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
         RecyclerView list = new RecyclerView(this); list.setLayoutManager(new LinearLayoutManager(this)); adapter = new ReviewAdapter(); list.setAdapter(adapter);
         page.addView(list, new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout selectionActions=new LinearLayout(this);
-        selectionActions.addView(button("Select all shown",()->{if(!model.busy){for(ReviewFile f:ReviewRules.filter(model.files,model.category,System.currentTimeMillis()))model.selected.add(f.uri());render();}}));
+        selectionActions.addView(button("Select all",()->{if(!model.busy){for(ReviewFile f:ReviewRules.filter(model.files,model.category,System.currentTimeMillis()))model.selected.add(f.uri());render();}}));
         if(!cacheTool)selectionActions.addView(button("Select extra copies",()->{if(!model.busy){model.selected.clear();model.selected.addAll(ReviewRules.extraCopies(model.files));render();}}));
-        selectionActions.addView(button("Deselect all",()->{if(!model.busy){model.selected.clear();render();}}));HorizontalScrollView bulk=new HorizontalScrollView(this);bulk.addView(selectionActions);page.addView(bulk);
+        selectionActions.addView(button("Clear all",()->{if(!model.busy){model.selected.clear();render();}}));HorizontalScrollView bulk=new HorizontalScrollView(this);bulk.addView(selectionActions);page.addView(bulk);
         selection = label("", 12, muted); page.addView(selection);
-        remove = button("CLEAN SELECTED", this::confirmDelete); page.addView(remove);
+        remove = button("Clean selected", this::confirmDelete); page.addView(remove);
         TextView help = label("Private by design · only files you authorize", 11, muted); help.setGravity(Gravity.CENTER); help.setOnClickListener(v -> new AuroraDialog.Builder(this).setTitle("Your files, your choice").setMessage("Clenzy cannot clear other apps' private caches or RAM. Photos use Android's Trash confirmation on Android 11+. Folder deletion may be permanent and may affect cloud copies. Age alone never means junk.").setPositiveButton("Done", null).setNeutralButton("Permissions", (d,w) -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:"+getPackageName())))).show()); if(!cacheTool)page.addView(help);
         waitingStorage=state!=null && state.getBoolean("waitingStorage",false);
         launchingTrash = state != null && state.getBoolean("trashLaunched", false);
@@ -122,7 +122,7 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     private void explainFolder() {new AuroraDialog.Builder(this).setTitle("Choose a folder to review").setMessage("Android grants access only to the folder you select. On newer Android versions, choose a supported subfolder or document provider. Clenzy cannot access Android/data or other apps’ private storage.").setPositiveButton("Continue",(d,w)->chooseFolder()).setNegativeButton("Back",(d,w)->finish()).show();}
     private void render() {
         if(model.completed && getIntent().hasExtra("tool")) {showResults();return;}
-        tree = model.tree; status.setText(model.status); progress.setVisibility(model.busy ? View.VISIBLE : View.GONE); cancel.setVisibility(model.busy ? View.VISIBLE : View.GONE);
+        tree = model.tree; status.setText(model.ownCache&&!model.busy?(model.files.isEmpty()?"No disposable cache to clean.":model.files.size()+" temporary files"):model.status); progress.setVisibility(model.busy ? View.VISIBLE : View.GONE); cancel.setVisibility(model.busy ? View.VISIBLE : View.GONE);
         if(getIntent().hasExtra("tool")) { ((View)cancel.getParent()).setVisibility(model.busy?View.VISIBLE:View.GONE); scan.setVisibility(View.GONE);deep.setVisibility(View.GONE); }
         for (Button b : List.of(choose, photos, scan, deep)) b.setEnabled(!model.busy && model.pendingTrash == null);
         List<ReviewFile> visible = ReviewRules.filter(model.files, model.category, System.currentTimeMillis());
@@ -138,9 +138,9 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     }
     private void updateSelection() {
         long bytes = ReviewRules.selectedBytes(model.files,model.selected);
-        selection.setText(model.selected.isEmpty() ? "Nothing selected · tap Preview to inspect a file" : model.selected.size()+" selected · "+bytes(bytes)+" source size");
+        selection.setText(model.selected.isEmpty() ? "Nothing selected" : model.selected.size()+" selected · "+bytes(bytes)+" source size");
 
-        remove.setText("CLEAN SELECTED — "+bytes(bytes)); remove.setEnabled(!model.busy && model.pendingTrash == null && !model.selected.isEmpty());
+        remove.setText("Clean selected · "+bytes(bytes)); remove.setEnabled(!model.busy && model.pendingTrash == null && !model.selected.isEmpty());
     }
     private void confirmDelete() {
         boolean all = ReviewRules.selectsEveryCopy(model.files, model.selected);
@@ -150,12 +150,12 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     }
     private void showResults() {
         LinearLayout result=column();result.setPadding(dp(10),dp(32),dp(10),dp(24));result.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(dp(10),insets.getSystemWindowInsetTop()+dp(12),dp(10),insets.getSystemWindowInsetBottom()+dp(12));return insets;});result.setBackground(Aurora.background());
-        result.addView(label("✓",48,mint));result.addView(label("CLEANING COMPLETE",26,ink));
+        result.addView(label("✓",48,mint));result.addView(label("Cleanup complete",26,ink));
         result.addView(label(model.movedToTrash ? model.removedFiles+" items moved to Trash" : bytes(model.recoveredBytes)+" successfully deleted",30,ink));
         result.addView(label(model.removedFiles+(model.movedToTrash?" items trashed · ":" files removed · ")+model.skippedFiles+" skipped or unavailable",16,muted));
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());result.addView(label(bytes(disk.getAvailableBytes())+" available now",18,muted));
         result.addView(label((model.movedToTrash ? "Trashed media may still use storage until the gallery empties Trash. " : "")+"Deletion totals reflect verified provider operations. Actual free space can differ because of provider trash, cloud storage and filesystem accounting.",13,muted));
-        result.addView(button("DONE",this::finish));setContentView(result);
+        result.addView(button("Done",this::finish));setContentView(result);
     }
     private void chooseFolder() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -246,7 +246,7 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
             }
             h.selected.setOnCheckedChangeListener(null); h.selected.setChecked(model.selected.contains(f.uri())); h.selected.setEnabled(!model.busy && model.pendingTrash == null);
             h.selected.setOnCheckedChangeListener((v, checked) -> { if(checked) model.selected.add(f.uri()); else model.selected.remove(f.uri()); updateSelection(); });
-            h.preview.setOnClickListener(v -> preview(f));
+            h.preview.setText(model.ownCache?"Details":"Preview");h.preview.setOnClickListener(v -> preview(f));
         }
         @Override public int getItemCount() { return entries.size(); }
     }
