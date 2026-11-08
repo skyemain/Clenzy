@@ -1,1 +1,1 @@
-https://github.com/skyemain/VCleaner/releases/download/android-v1.0-build-96/Clenzy-1.0-android-arm64.apk
+https://github.com/skyemain/VCleaner/releases/download/android-v1.1-build-98/Clenzy-1.1-android-universal.apk
