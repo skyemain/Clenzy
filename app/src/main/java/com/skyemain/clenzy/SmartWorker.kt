@@ -17,7 +17,6 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
     }
     override suspend fun doWork():Result=withContext(Dispatchers.IO){
         val job=currentCoroutineContext()
-        val started=android.os.SystemClock.elapsedRealtime()
         try{
             progress("Finding photos and videos")
             val all=mutableListOf<Medium>();var accessible=0
@@ -46,8 +45,6 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
                 progress("Checking accessible photos and videos",all.size)
                 for(m in all){
                     job.ensureActive();val cached=cachedItems.remove(m.uri)
-                    // Resume from this run's persisted analyses before the WorkManager time limit.
-                    if(cached==null && android.os.SystemClock.elapsedRealtime()-started>7*60_000L)return@withContext Result.retry()
                     val itemStarted=android.os.SystemClock.elapsedRealtime()
                     var i=cached?.takeIf{it.complete}?:try{vision.analyze(m){job.ensureActive()}}catch(e:Exception){
                         job.ensureActive();Insight(listOf(Finding("Review manually","Analysis unavailable · review manually",false)),emptyList(),0.0,complete=false)

@@ -88,6 +88,7 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-Android-results.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-gallery.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-menu.png screenshots/
+            adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-progress.png screenshots/
       - uses: actions/upload-artifact@v4
         if: always()
         with:

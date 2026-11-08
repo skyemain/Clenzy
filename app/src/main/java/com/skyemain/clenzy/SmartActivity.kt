@@ -40,6 +40,7 @@ class SmartActivity:ComponentActivity(){
     private var filter="All"
     private var waiting=emptyList<Medium>()
     private var submitting=false
+    private var scanning=false
     private val notificationPermission=registerForActivityResult(ActivityResultContracts.RequestPermission()){ }
     private fun backgroundPrompt(){
         if(Build.VERSION.SDK_INT>=33 && !granted(android.Manifest.permission.POST_NOTIFICATIONS) && !getPreferences(0).getBoolean("askedNotifications",false)){
@@ -48,8 +49,14 @@ class SmartActivity:ComponentActivity(){
         }
     }
     private fun homeDuringScan(){
-        if(isTaskRoot)startActivity(Intent(this,HomeActivity::class.java))
-        finish()
+        val active=run
+        run="";scanning=false
+        getPreferences(0).edit().remove("run").apply()
+        lifecycleScope.launch{
+            if(active.isNotEmpty())withContext(Dispatchers.IO){manager.cancelWorkById(UUID.fromString(active)).result.get()}
+            if(isTaskRoot)startActivity(Intent(this@SmartActivity,HomeActivity::class.java))
+            finish()
+        }
     }
     private val request=registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){if(access())startScan() else landing()}
     private val trash=registerForActivityResult(ActivityResultContracts.StartIntentSenderForResult()){response->
@@ -98,6 +105,7 @@ class SmartActivity:ComponentActivity(){
     private fun observe(id:UUID,pending:List<String> = emptyList()){
         manager.getWorkInfoByIdLiveData(id).observe(this){work->
             if(run!=id.toString())return@observe
+            scanning=work!=null && !work.state.isFinished
             when(work?.state){
                 WorkInfo.State.SUCCEEDED->lifecycleScope.launch{
                     if(!access()){landing();return@launch}
@@ -123,12 +131,13 @@ class SmartActivity:ComponentActivity(){
                     val eta=work.progress.getLong("eta",-1)
                     if(eta>=0 && !grouping)label(if(eta<60)"Estimated: less than a minute left" else "Estimated: ${(eta+59)/60} min left",14)
                     else if(!grouping)label("Estimating time…",14)
-                    label("You can leave this screen. We’ll notify you when it’s ready.",14)
-                    button("Back to Home",this::homeDuringScan)
+                    label("Switch apps or turn off the screen. We’ll notify you when it’s ready.",14)
                     if(!ScanNotifications.enabled(this))button("Enable completion alerts"){
                         startActivity(Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,packageName))
                     }
-                    button("Cancel scan"){manager.cancelWorkById(id)}
+                    page.addView(Space(this),LinearLayout.LayoutParams(1,0,1f))
+                    label("Back to Home cancels this scan.",13).gravity=Gravity.CENTER
+                    button("Back to Home",this::homeDuringScan)
                 }
             }
         }
@@ -297,5 +306,5 @@ class SmartActivity:ComponentActivity(){
                 catch(_:Exception){submitting=false;Toast.makeText(this@SmartActivity,"Android could not open Trash confirmation.",Toast.LENGTH_LONG).show()}
         }
     }
-    @Deprecated("Android back navigation") override fun onBackPressed(){if(category!=null)dashboard() else super.onBackPressed()}
+    @Deprecated("Android back navigation") override fun onBackPressed(){if(scanning)homeDuringScan() else if(category!=null)dashboard() else super.onBackPressed()}
 }
