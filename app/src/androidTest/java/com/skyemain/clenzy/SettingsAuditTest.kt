@@ -24,7 +24,9 @@ class SettingsAuditTest {
             assertTrue(device.wait(Until.hasObject(By.pkg("com.android.settings")),5000));device.pressBack()
             click("Clenzy cache")
             assertNotNull(device.wait(Until.findObject(By.text("Clenzy cache")),5000));assertFalse(device.hasObject(By.text("Select extra copies")))
-            click("Sort");click("Name");assertTrue(device.wait(Until.gone(By.text("Name")),5000))
+            assertTrue(device.wait(Until.hasObject(By.text("No temporary files to clear")),5000))
+            assertFalse(device.hasObject(By.text("Sort")))
+            assertFalse(device.hasObject(By.text("Clear cache")))
             device.pressBack();assertNotNull(device.wait(Until.findObject(By.text("About Clenzy")),5000))
         }
     }

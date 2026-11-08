@@ -37,6 +37,7 @@ class SmartActivity:ComponentActivity(){
     private var run=""
     private var sort=0
     private var filter="All"
+    private var scannedCount = 0
     private var waiting=emptyList<Medium>()
     private var submitting=false
     private var scanning=false
@@ -112,6 +113,7 @@ class SmartActivity:ComponentActivity(){
                     val fresh=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.results(id.toString())}}
                     if(run!=id.toString())return@launch
                     results=fresh
+                    scannedCount = work.outputData.getInt("scannedCount", fresh.size)
                     waiting=results.keys.filter{it.uri in pending};dashboard()
                 }
                 WorkInfo.State.FAILED,WorkInfo.State.CANCELLED->{landing();label(work.outputData.getString("error")?:"Scan stopped. Completed analysis can be reused.")}
@@ -144,26 +146,17 @@ class SmartActivity:ComponentActivity(){
     }
     private fun dashboard(){
         category=null;screen("AI Smart Clean")
-        val candidates=results.filter{(m,i)->i.findings.any{it.category!="Review manually"}}.keys
-        val eligible=candidates.toSet()
         val grouped=linkedMapOf<String,MutableList<Medium>>()
         for((item,insight) in results){
             for(finding in insight.findings.distinctBy{it.category}){
                 grouped.getOrPut(finding.category){mutableListOf()}.add(item)
             }
         }
-        val hero=LinearLayout(this).apply{
-            orientation=LinearLayout.VERTICAL
-            background=Aurora.glass(this@SmartActivity,true)
-            setPadding(dp(18),dp(12),dp(18),dp(14))
-        }
-        fun heroLine(value:String,size:Int)=TextView(this).apply{text=value;setTextColor(Aurora.INK);textSize=size.toFloat();setTextColor(android.graphics.Color.WHITE);hero.addView(this)}
-        heroLine("${bytes(candidates.sumOf{it.size})} to review",29).setTypeface(null,Typeface.BOLD)
-        heroLine("${eligible.size} candidates · ${results.size} media checked",14)
-        page.addView(hero)
+        val count = java.text.NumberFormat.getIntegerInstance().format(scannedCount)
+        label(if (scannedCount == 1) "$count item scanned" else "$count items scanned", 14)
+            .setTextColor(Aurora.MUTED)
         val scroll=ScrollView(this);val cards=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL}
         scroll.addView(cards);page.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        val dark=(resources.configuration.uiMode and 48)==32
         val priority=listOf("Duplicate photos","Similar photos","Screenshots","Shared videos")
         val names=grouped.keys.sortedWith(compareBy<String>{priority.indexOf(it).let{n->if(n<0)99 else n}}.thenBy{it})
         for(pair in names.chunked(2)){

@@ -43,7 +43,11 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
         page.setOnApplyWindowInsetsListener((v, insets) -> { v.setPadding(dp(10), insets.getSystemWindowInsetTop()+dp(12), dp(10), insets.getSystemWindowInsetBottom()+dp(12)); return insets; });
         page.addView(Aurora.iconButton(this,"back","Back",this::finish),new LinearLayout.LayoutParams(dp(48),dp(48)));
         boolean cacheTool="cache".equals(getIntent().getStringExtra("tool"));
-        TextView title = label(cacheTool?"Clenzy cache":"Your files", 30, ink); title.setTypeface(null, Typeface.BOLD); page.addView(title);
+        if (cacheTool) {
+            showCache(page);
+            return;
+        }
+        TextView title = label("Your files", 30, ink); title.setTypeface(null, Typeface.BOLD); page.addView(title);
 
         LinearLayout storage = column(); styleCard(storage);
         storage.addView(label("DEVICE STORAGE", 11, mint)); metrics = label("", 22, ink); storage.addView(metrics);
@@ -62,16 +66,16 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
         Button picker=button(categories[model.category.ordinal()],()->new AuroraDialog.Builder(this).setTitle("File categories").setItems(categories,(d,index)->{model.category=ReviewRules.Category.values()[index];categoryPicker.setText(categories[index]);model.changed();}).setNegativeButton("Close",null).show());
         categoryPicker=picker;
         LinearLayout filters = new LinearLayout(this); filters.addView(picker, new LinearLayout.LayoutParams(0,-2,1));
-        Button sort = button("Sort", () -> new AuroraDialog.Builder(this).setTitle("Sort files").setItems(new String[]{"Largest first", "Name", "Newest first"}, (d,which) -> { sortByName = which == 1; sortByDate=which==2; render(); }).show()); filters.addView(sort); page.addView(filters);if(cacheTool)picker.setVisibility(View.GONE);
+        Button sort = button("Sort", () -> new AuroraDialog.Builder(this).setTitle("Sort files").setItems(new String[]{"Largest first", "Name", "Newest first"}, (d,which) -> { sortByName = which == 1; sortByDate=which==2; render(); }).show()); filters.addView(sort); page.addView(filters);
         RecyclerView list = new RecyclerView(this); list.setLayoutManager(new LinearLayoutManager(this)); adapter = new ReviewAdapter(); list.setAdapter(adapter);
         page.addView(list, new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout selectionActions=new LinearLayout(this);
         selectionActions.addView(button("Select all",()->{if(!model.busy){for(ReviewFile f:ReviewRules.filter(model.files,model.category,System.currentTimeMillis()))model.selected.add(f.uri());render();}}));
-        if(!cacheTool)selectionActions.addView(button("Select extra copies",()->{if(!model.busy){model.selected.clear();model.selected.addAll(ReviewRules.extraCopies(model.files));render();}}));
+        selectionActions.addView(button("Select extra copies",()->{if(!model.busy){model.selected.clear();model.selected.addAll(ReviewRules.extraCopies(model.files));render();}}));
         selectionActions.addView(button("Clear all",()->{if(!model.busy){model.selected.clear();render();}}));HorizontalScrollView bulk=new HorizontalScrollView(this);bulk.addView(selectionActions);page.addView(bulk);
         selection = label("", 12, muted); page.addView(selection);
         remove = button("Clean selected", this::confirmDelete); page.addView(remove);
-        TextView help = label("Private by design · only files you authorize", 11, muted); help.setGravity(Gravity.CENTER); help.setOnClickListener(v -> new AuroraDialog.Builder(this).setTitle("Your files, your choice").setMessage("Clenzy cannot clear other apps' private caches or RAM. Photos use Android's Trash confirmation on Android 11+. Folder deletion may be permanent and may affect cloud copies. Age alone never means junk.").setPositiveButton("Done", null).setNeutralButton("Permissions", (d,w) -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:"+getPackageName())))).show()); if(!cacheTool)page.addView(help);
+        TextView help = label("Private by design · only files you authorize", 11, muted); help.setGravity(Gravity.CENTER); help.setOnClickListener(v -> new AuroraDialog.Builder(this).setTitle("Your files, your choice").setMessage("Clenzy cannot clear other apps' private caches or RAM. Photos use Android's Trash confirmation on Android 11+. Folder deletion may be permanent and may affect cloud copies. Age alone never means junk.").setPositiveButton("Done", null).setNeutralButton("Permissions", (d,w) -> startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:"+getPackageName())))).show()); page.addView(help);
         waitingStorage=state!=null && state.getBoolean("waitingStorage",false);
         launchingTrash = state != null && state.getBoolean("trashLaunched", false);
         setContentView(page);
@@ -82,14 +86,57 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
             model.category=tool.equals("large")?ReviewRules.Category.LARGE:tool.equals("duplicates")?ReviewRules.Category.DUPLICATES:ReviewRules.Category.ALL;
             picker.setText(categories[model.category.ordinal()]);
             if(state==null) {
-                if(tool.equals("cache")) {model.ownCache=true;model.media=false;model.scan(false);}
-                else if(tool.equals("folder")) explainFolder();
+                if(tool.equals("folder")) explainFolder();
                 else if(!tool.equals("photos")) storageAccess();
                 else if(model.tree!=null && !tool.equals("photos")) {model.ownCache=false;model.media=false;model.scan(false);}
                 else new AuroraDialog.Builder(this).setTitle("Allow Clenzy to find files you can review").setMessage("Photos access covers only authorized images and videos. You can choose a folder instead for documents and downloads. Nothing personal is selected automatically.").setPositiveButton("Continue",(d,w)->mediaAccess()).setNeutralButton("Choose folder",(d,w)->chooseFolder()).setNegativeButton("Back",(d,w)->finish()).show();
             }
         }
     }
+    private void showCache(LinearLayout page) {
+        TextView title = label("Clenzy cache", 30, ink);
+        title.setTypeface(null, Typeface.BOLD);
+        page.addView(title);
+        page.addView(label("Clears temporary files created by Clenzy.", 15, muted));
+        TextView summary = label("", 20, ink);
+        page.addView(summary, spaced());
+
+        ProgressBar activity = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        activity.setIndeterminate(true);
+        page.addView(activity);
+        Button clear = button("Clear cache", () -> new AuroraDialog.Builder(this)
+            .setTitle("Clear Clenzy cache?")
+            .setMessage("This removes the temporary files found by this check. Your photos, documents and cleanup history are kept.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Clear cache", (dialog, which) -> model.delete())
+            .show());
+        page.addView(clear, spaced());
+        setContentView(page);
+
+        model.ownCache = true;
+        model.category = ReviewRules.Category.ALL;
+        model.updates.observe(this, ignored -> {
+            if (model.completed && model.removedFiles > 0) {
+                showResults();
+                return;
+            }
+            activity.setVisibility(model.busy ? View.VISIBLE : View.GONE);
+            clear.setVisibility(!model.busy && !model.selected.isEmpty() ? View.VISIBLE : View.GONE);
+            if (model.busy) {
+                summary.setText(model.deleting ? "Clearing temporary files…" : "Checking for temporary files…");
+            } else if (model.scanFailed || model.completed) {
+                summary.setText("No temporary files were cleared.");
+            } else if (model.files.isEmpty()) {
+                summary.setText("No temporary files to clear");
+            } else {
+                int count = model.files.size();
+                summary.setText(bytes(ReviewRules.selectedBytes(model.files, model.selected))
+                    + " · " + count + (count == 1 ? " temporary file" : " temporary files"));
+            }
+        });
+        if (!model.busy && !model.scanFinished) model.scan(false);
+    }
+
     @Override protected void onResume() {
         super.onResume();
         if(model!=null && waitingStorage) {
@@ -122,7 +169,7 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     private void explainFolder() {new AuroraDialog.Builder(this).setTitle("Choose a folder to review").setMessage("Android grants access only to the folder you select. On newer Android versions, choose a supported subfolder or document provider. Clenzy cannot access Android/data or other apps’ private storage.").setPositiveButton("Continue",(d,w)->chooseFolder()).setNegativeButton("Back",(d,w)->finish()).show();}
     private void render() {
         if(model.completed && getIntent().hasExtra("tool")) {showResults();return;}
-        tree = model.tree; status.setText(model.ownCache&&!model.busy?(model.files.isEmpty()?"No disposable cache to clean.":model.files.size()+" temporary files"):model.status); progress.setVisibility(model.busy ? View.VISIBLE : View.GONE); cancel.setVisibility(model.busy ? View.VISIBLE : View.GONE);
+        tree = model.tree; status.setText(model.status); progress.setVisibility(model.busy ? View.VISIBLE : View.GONE); cancel.setVisibility(model.busy ? View.VISIBLE : View.GONE);
         if(getIntent().hasExtra("tool")) { ((View)cancel.getParent()).setVisibility(model.busy?View.VISIBLE:View.GONE); scan.setVisibility(View.GONE);deep.setVisibility(View.GONE); }
         for (Button b : List.of(choose, photos, scan, deep)) b.setEnabled(!model.busy && model.pendingTrash == null);
         List<ReviewFile> visible = ReviewRules.filter(model.files, model.category, System.currentTimeMillis());
@@ -144,8 +191,8 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     }
     private void confirmDelete() {
         boolean all = ReviewRules.selectsEveryCopy(model.files, model.selected);
-        new AuroraDialog.Builder(this).setTitle(model.ownCache?"Clear selected cache?":model.media ? "Move selected media to Trash?" : "Permanently delete selected files?")
-            .setMessage((all ? "You selected EVERY copy in a duplicate group.\n\n" : "") + (model.ownCache?"Only selected Clenzy temporary files will be deleted. Your photos and documents are not included.":model.media ? "Android will ask you to confirm. Trashed items may still use storage until removed." : "There may be no recycle bin. Cloud providers may delete synced copies too. Age does not mean a file is unnecessary."))
+        new AuroraDialog.Builder(this).setTitle(model.media ? "Move selected media to Trash?" : "Permanently delete selected files?")
+            .setMessage((all ? "You selected EVERY copy in a duplicate group.\n\n" : "") + (model.media ? "Android will ask you to confirm. Trashed items may still use storage until removed." : "There may be no recycle bin. Cloud providers may delete synced copies too. Age does not mean a file is unnecessary."))
             .setNegativeButton("Cancel", null).setPositiveButton("Continue", (d,w) -> model.delete()).show();
     }
     private void showResults() {

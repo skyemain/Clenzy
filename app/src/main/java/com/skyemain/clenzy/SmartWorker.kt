@@ -90,7 +90,7 @@ class SmartWorker(context:Context,p:WorkerParameters):CoroutineWorker(context,p)
             if(applicationContext.getSharedPreferences("SmartActivity",0).getString("run",null)==id.toString()){
                 try{ScanNotifications.completed(applicationContext)}catch(_:SecurityException){ /* Notifications can be disabled during a scan. */ }
             }
-            Result.success()
+            Result.success(workDataOf("scannedCount" to (photos + videos)))
         }catch(e:CancellationException){throw e}catch(e:Exception){Result.failure(workDataOf("error" to "Analysis stopped. Check media access and available storage, then retry."))}
     }
 }

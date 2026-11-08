@@ -26,12 +26,19 @@ public class HomeFlowTest {
   try {
    try(var output=new FileOutputStream(fixture)){output.write(new byte[256]);}
    assertTrue(fixture.setLastModified(System.currentTimeMillis()-172800000L));
-   android.content.Intent intent=new android.content.Intent(context,MainActivity.class).putExtra("tool","cache");
-   try(var scenario=ActivityScenario.<MainActivity>launch(intent)){
+   android.content.Intent intent=new android.content.Intent(context,HomeActivity.class).putExtra("settings",true);
+   try(var scenario=ActivityScenario.<HomeActivity>launch(intent)){
     UiDevice device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-    var clean=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("Clean selected.*")).enabled(true)),10000);assertNotNull(clean);
+    var cache=device.wait(Until.findObject(By.desc("Clenzy cache")),5000);assertNotNull(cache);cache.click();
+    var clean=device.wait(Until.findObject(By.text("Clear cache").enabled(true)),10000);assertNotNull(clean);
+    assertFalse(device.hasObject(By.text("Sort")));
     device.waitForIdle();clean.click();
-    var confirm=device.wait(Until.findObject(By.text(java.util.regex.Pattern.compile("(?i)Continue"))),5000);assertNotNull(confirm);confirm.click();
+    assertTrue(device.wait(Until.hasObject(By.text("Clear Clenzy cache?")),5000));
+    var cancel=device.wait(Until.findObject(By.text("Cancel")),5000);assertNotNull(cancel);cancel.click();
+    assertTrue(fixture.exists());
+    var retry=device.wait(Until.findObject(By.text("Clear cache")),5000);assertNotNull(retry);retry.click();
+    assertTrue(device.wait(Until.hasObject(By.text("Clear Clenzy cache?")),5000));
+    var confirm=device.wait(Until.findObject(By.text("Clear cache")),5000);assertNotNull(confirm);confirm.click();
     assertTrue(device.wait(Until.hasObject(By.text("Cleanup complete")),10000));assertFalse(fixture.exists());
     var done=device.findObject(By.text("Done"));assertNotNull(done);done.click();
    }
