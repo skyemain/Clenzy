@@ -35,17 +35,22 @@ class SystemTrashTest {
                     SmartActivity::class.java.getDeclaredMethod("review").apply{isAccessible=true}.invoke(activity)
                 }
                 requireNotNull(device.wait(Until.findObject(By.text("Move to Trash (1)")),5000)).click()
-                val cancel=device.wait(Until.findObject(By.text(Pattern.compile("(?i)cancel"))),3000)
-                device.takeScreenshot(java.io.File(context.getExternalFilesDir(null),"Clenzy-system-trash.png"))
-                if(cancel!=null){
-                    assertNotEquals(context.packageName,cancel.applicationPackage)
-                    cancel.click();assertTrue(device.wait(Until.gone(By.text(Pattern.compile("(?i)cancel"))),5000));device.waitForIdle()
-                    scenario.onActivity{assertFalse(SmartActivity::class.java.getDeclaredField("submitting").apply{isAccessible=true}.getBoolean(it))}
-                    assertFalse(TrashState.isTrashed(resolver,uri.toString()))
-                    requireNotNull(device.wait(Until.findObject(By.text("Move to Trash (1)")),5000)).click()
-                    val allow=device.wait(Until.findObject(By.text(Pattern.compile("(?i)(move to trash|allow|trash)"))),5000)
-                    requireNotNull(allow).click()
+                val denyButton = By.text(Pattern.compile("(?i)(deny|cancel)"))
+                val deny = requireNotNull(device.wait(Until.findObject(denyButton), 5000))
+                device.takeScreenshot(java.io.File(context.getExternalFilesDir(null), "Clenzy-system-trash.png"))
+                assertNotEquals(context.packageName, deny.applicationPackage)
+                deny.click()
+                assertTrue(device.wait(Until.gone(denyButton), 5000))
+                device.waitForIdle()
+                scenario.onActivity {
+                    assertFalse(SmartActivity::class.java.getDeclaredField("submitting").apply { isAccessible = true }.getBoolean(it))
                 }
+                assertFalse(TrashState.isTrashed(resolver, uri.toString()))
+                requireNotNull(device.wait(Until.findObject(By.text("Move to Trash (1)")), 5000)).click()
+                val allowButton = By.text(Pattern.compile("(?i)(move to trash|allow|trash)"))
+                val allow = requireNotNull(device.wait(Until.findObject(allowButton), 5000))
+                assertNotEquals(context.packageName, allow.applicationPackage)
+                allow.click()
                 val deadline=System.currentTimeMillis()+10000
                 while(!TrashState.isTrashed(resolver,uri.toString())&&System.currentTimeMillis()<deadline)Thread.sleep(100)
                 if(!TrashState.isTrashed(resolver,uri.toString())){device.takeScreenshot(java.io.File(context.getExternalFilesDir(null),"Clenzy-trash-failure.png"));device.dumpWindowHierarchy(java.io.File(context.getExternalFilesDir(null),"trash-failure.xml"))}
