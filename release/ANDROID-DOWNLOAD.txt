@@ -1,1 +1,1 @@
-https://github.com/skyemain/VCleaner/releases/download/android-v2.2.0-build-82/Clenzy-2.2.0-android-candidate.apk
+https://github.com/skyemain/VCleaner/releases/download/android-v2.2.0-build-85/Clenzy-2.2.0-android-candidate.apk
