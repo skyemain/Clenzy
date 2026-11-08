@@ -60,7 +60,7 @@ public final class HomeActivity extends AppCompatActivity {
         addSetting("Cleanup history","Recent cleanup results","Downloads",this::history);
         addSetting("Privacy & access",accessSummary(),"settings",this::accessSettings);
         addSetting("Clenzy cache","Manage temporary files","Duplicate copies",()->open("cache"));
-        addSetting("About Clenzy","Version 1.0","Home",()->message("Clenzy 1.0","Offline storage review and cleanup."));
+        addSetting("About Clenzy","Version "+BuildConfig.VERSION_NAME,"Home",()->message("Clenzy "+BuildConfig.VERSION_NAME,"Offline storage review and cleanup."));
         setContentView(scroll);scroll.requestApplyInsets();
     }
     private String accessSummary(){

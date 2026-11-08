@@ -1,4 +1,4 @@
-name: Android candidate
+name: Android APK
 on:
   push:
     branches: [android]
@@ -58,23 +58,31 @@ jobs:
         env:
           CLENZY_STORE_PASSWORD: ${{ secrets.CLENZY_STORE_PASSWORD }}
         run: |
-          gradle testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease assembleDebugAndroidTest || {
+          gradle testDebugUnitTest lintDebug assembleDebug assembleRelease assembleDebugAndroidTest || {
             find app/build -name 'lint-results-debug.txt' -exec awk '/Error:/{print}' {} +
             exit 1
           }
-      - name: Build and validate Play bundle and ARM64 APK
-        env:
-          CLENZY_STORE_PASSWORD: ${{ secrets.CLENZY_STORE_PASSWORD }}
+      - name: Verify universal APK
         run: |
-          gradle assembleRelease -PclenzyArm64
           apk=$(find app/build/outputs/apk/release -name 'app-release*.apk' -print -quit)
           test -n "$apk"
-          bash build/check-play-bundle.sh app/build/outputs/bundle/release/app-release.aab "$apk"
-      - name: Verify release signature
-        if: env.CLENZY_KEYSTORE != ''
-        run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
-          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+          python3 - "$apk" <<'PY'
+          import sys
+          import zipfile
+
+          with zipfile.ZipFile(sys.argv[1]) as apk:
+              entries = set(apk.namelist())
+          abis = ("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+          for abi in abis:
+              for library in ("libonnxruntime.so", "libonnxruntime4j_jni.so"):
+                  assert f"lib/{abi}/{library}" in entries, f"Missing {library} for {abi}"
+          assert "assets/siglip2-vision.onnx" in entries, "Missing offline vision model"
+          print("Verified offline AI and four CPU architectures.")
+          PY
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 "$apk"
+          if [ -n "$CLENZY_KEYSTORE" ]; then
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk"
+          fi
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -111,6 +119,12 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-gallery.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-menu.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-progress.png screenshots/
+            if [ -n "$CLENZY_KEYSTORE" ]; then
+              adb uninstall com.skyemain.clenzy
+              adb install app/build/outputs/apk/release/app-release.apk
+              adb shell am start -W -n com.skyemain.clenzy/.HomeActivity | tee screenshots/release-launch.txt
+              rg -q 'Status: ok' screenshots/release-launch.txt
+            fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -118,33 +132,31 @@ jobs:
           path: screenshots/
       - uses: actions/upload-artifact@v4
         with:
-          name: Clenzy-Android-candidate
-          path: |
-            app/build/outputs/apk/
-            app/build/outputs/bundle/
-      - name: Publish signed release candidate
+          name: Clenzy-Android-APK
+          path: app/build/outputs/apk/release/*.apk
+      - name: Publish signed universal APK
         if: github.event_name != 'pull_request' && env.CLENZY_KEYSTORE != ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           git fetch origin android
           if [ "$(git rev-parse origin/android)" != "${{ github.sha }}" ]; then exit 0; fi
+          version=$(cat VERSION)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
           mkdir -p release
-          rm -f release/Clenzy-*-android-candidate.apk
-          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-1.0-android-arm64.apk
-          cp app/build/outputs/bundle/release/app-release.aab release/Clenzy-1.0-android-play.aab
-          (cd release && sha256sum Clenzy-1.0-android-arm64.apk Clenzy-1.0-android-play.aab > SHA256SUMS.txt)
-          tag="android-v1.0-build-${GITHUB_RUN_NUMBER}"
-          apk="release/Clenzy-1.0-android-arm64.apk"
+          tag="android-v${version}-build-${GITHUB_RUN_NUMBER}"
+          apk="release/Clenzy-${version}-android-universal.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          (cd release && sha256sum "$(basename "$apk")" > SHA256SUMS.txt)
           if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Android 1.0" --notes "Signed ARM64 APK for direct installation and Android App Bundle for Google Play submission. Includes offline AI Smart Clean." --prerelease --latest=false
+            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Android $version" --notes "Signed universal APK for direct installation. Includes offline AI Smart Clean." --prerelease --latest=false
           fi
-          gh release upload "$tag" "$apk" release/Clenzy-1.0-android-play.aab release/SHA256SUMS.txt --clobber
+          gh release upload "$tag" "$apk" release/SHA256SUMS.txt --clobber
           printf 'https://github.com/%s/releases/download/%s/%s\n' "$GITHUB_REPOSITORY" "$tag" "$(basename "$apk")" > release/ANDROID-DOWNLOAD.txt
-          rm "$apk" release/Clenzy-1.0-android-play.aab
+          rm "$apk"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add release
           git diff --cached --quiet && exit 0
-          git commit -m 'Publish signed Android candidate [skip ci]'
+          git commit -m 'Publish signed universal Android APK [skip ci]'
           git push origin HEAD:android

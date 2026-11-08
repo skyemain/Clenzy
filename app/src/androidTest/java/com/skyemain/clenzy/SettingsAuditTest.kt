@@ -17,7 +17,7 @@ class SettingsAuditTest {
         fun click(text:String){requireNotNull(device.wait(Until.findObject(By.text(text)),5000)).click()}
         ActivityScenario.launch<HomeActivity>(Intent(context,HomeActivity::class.java).putExtra("settings",true)).use{
             click("Cleanup history");click("Done");assertTrue(device.wait(Until.gone(By.text("Done")),5000))
-            click("About Clenzy");assertNotNull(device.wait(Until.findObject(By.text("Clenzy 1.0")),5000));click("Done");device.wait(Until.gone(By.text("Done")),5000)
+            click("About Clenzy");assertNotNull(device.wait(Until.findObject(By.text("Clenzy ${BuildConfig.VERSION_NAME}")),5000));click("Done");device.wait(Until.gone(By.text("Done")),5000)
             click("Privacy & access");click("Photos & videos permission")
             assertTrue(device.wait(Until.hasObject(By.pkg("com.android.settings")),5000));device.pressBack()
             click("Privacy & access");click("Shared files access")

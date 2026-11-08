@@ -2,15 +2,13 @@ plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
 android {
     namespace 'com.skyemain.clenzy'
     compileSdk 36
+    buildFeatures { buildConfig true }
     defaultConfig {
         applicationId 'com.skyemain.clenzy'
         minSdk 26
         targetSdk 36
         versionCode = ((System.getenv("GITHUB_RUN_NUMBER") ?: "2").toInteger() + 100)
-        versionName '1.0'
-        if (providers.gradleProperty('clenzyArm64').isPresent()) {
-            ndk { abiFilters 'arm64-v8a' }
-        }
+        versionName rootProject.file('VERSION').text.trim()
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     kotlinOptions { jvmTarget = '17' }
