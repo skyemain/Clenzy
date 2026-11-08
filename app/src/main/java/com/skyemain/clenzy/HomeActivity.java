@@ -1,6 +1,5 @@
 package com.skyemain.clenzy;
 
-import android.app.AlertDialog;
 import android.content.*;
 import android.content.pm.*;
 import android.graphics.Color;
@@ -20,16 +19,13 @@ import java.util.*;
 public final class HomeActivity extends AppCompatActivity {
     private int ink,muted,surface,bg; private final int blue=Color.rgb(50,104,232);
     private LinearLayout page;
-    private boolean waitingUsage;
-    private final java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
-    @Override protected void onDestroy(){worker.shutdownNow();super.onDestroy();}
     private int dp(float n){return Math.round(n*getResources().getDisplayMetrics().density);}
     @Override public void onCreate(Bundle state){
         int theme=getSharedPreferences("cleanup",0).getInt("theme",-1);
         applyTheme(theme); super.onCreate(state); getSharedPreferences("locked_media",0).edit().clear().apply(); draw();
         if(getIntent().getBooleanExtra("settings",false))settings();
     }
-    @Override protected void onResume(){super.onResume(); if(page!=null){if(getIntent().getBooleanExtra("settings",false))settings();else draw();}if(waitingUsage){waitingUsage=false;loadApps();}}
+    @Override protected void onResume(){super.onResume(); if(page!=null){if(getIntent().getBooleanExtra("settings",false))settings();else draw();}}
     private static void applyTheme(int mode){AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);}
     private void draw(){
         ink=Aurora.INK;muted=Aurora.MUTED;surface=Aurora.SURFACE;bg=Aurora.BASE;Aurora.window(this);
@@ -49,7 +45,6 @@ public final class HomeActivity extends AppCompatActivity {
         ImageView icon=new ImageView(this);icon.setImageDrawable(Aurora.symbol(ai));icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);tile.addView(icon,new LinearLayout.LayoutParams(dp(82),dp(82)));
         LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,-2);layout.setMargins(0,dp(16),0,0);page.addView(tile,layout);
     }
-    private LinearLayout navItem(String title,Runnable action){LinearLayout item=column();item.setGravity(Gravity.CENTER);item.setPadding(0,dp(10),0,dp(10));ImageView icon=new ImageView(this);icon.setImageDrawable(new LineIcon(title,blue));item.addView(icon,new LinearLayout.LayoutParams(dp(23),dp(23)));TextView label=text(title,11,muted);label.setGravity(Gravity.CENTER);item.addView(label);item.setContentDescription(title);item.setFocusable(true);item.setOnClickListener(v->action.run());return item;}
     private void startCleaning(){startActivity(new Intent(this,CleanActivity.class));}
     private void open(String tool){startActivity(new Intent(this,MainActivity.class).putExtra("tool",tool));}
     private void settings(){
@@ -62,22 +57,19 @@ public final class HomeActivity extends AppCompatActivity {
         addSetting("Cleanup history","Recent cleanup results","Downloads",this::history);
         addSetting("Privacy & access",accessSummary(),"settings",this::accessSettings);
         addSetting("Clenzy cache","Manage temporary files","Duplicate copies",()->open("cache"));
-        addSetting("About Clenzy","Version 2.2.0","Home",()->message("Clenzy 2.2.0","Offline storage review and cleanup."));
+        addSetting("About Clenzy","Version 1.0","Home",()->message("Clenzy 1.0","Offline storage review and cleanup."));
         setContentView(scroll);scroll.requestApplyInsets();
     }
     private String accessSummary(){
-        boolean all=Build.VERSION.SDK_INT>=30 && Environment.isExternalStorageManager();
+        boolean all=Build.VERSION.SDK_INT>=30?Environment.isExternalStorageManager():checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
         boolean photos=checkSelfPermission(Build.VERSION.SDK_INT>=33?android.Manifest.permission.READ_MEDIA_IMAGES:android.Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
         boolean videos=checkSelfPermission(Build.VERSION.SDK_INT>=33?android.Manifest.permission.READ_MEDIA_VIDEO:android.Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
-        return "Shared files: "+(all?"allowed":"limited")+" · Media: "+(photos&&videos?"all":"limited");
+        return "Shared files: "+(all?"allowed":"limited")+" · Media: "+(photos&&videos?"all":photos||videos||(Build.VERSION.SDK_INT>=34&&checkSelfPermission(android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED)==PackageManager.PERMISSION_GRANTED)?"limited":"off");
     }
     private void accessSettings(){
-        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(20),dp(20),dp(20),dp(16));content.setBackground(Aurora.panel(this,true));
-        content.addView(text("Privacy & access",24,ink));content.addView(text(accessSummary(),15,muted));
-        content.addView(text("All files access covers shared storage. Android keeps other apps’ private data separate.",13,muted));
-        if(Build.VERSION.SDK_INT>=30)content.addView(button("Shared files access",()->{dialog.dismiss();try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}},false));
-        content.addView(button("Photos & videos permission",()->{dialog.dismiss();startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())));},false));
-        content.addView(button("Done",dialog::dismiss,false));dialog.setContentView(content);dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));dialog.show();dialog.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels-dp(20),-2);
+        AuroraDialog.Builder dialog=new AuroraDialog.Builder(this).setTitle("Privacy & access").setMessage(accessSummary()+"\n\nAll files access covers shared storage. Other apps’ private data remains separate.");
+        if(Build.VERSION.SDK_INT>=30)dialog.setPositiveButton("Shared files access",(d,w)->{try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}});
+        dialog.setNeutralButton("Photos & videos permission",(d,w)->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName())))).setNegativeButton("Done",null).show();
     }
     private void storageSummary(){
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());long total=disk.getTotalBytes(),free=disk.getAvailableBytes();
@@ -100,56 +92,7 @@ public final class HomeActivity extends AppCompatActivity {
             message("Cleanup history",String.join("\n\n",rows));
         }catch(org.json.JSONException e){message("History unavailable","Saved cleanup history could not be read.");}
     }
-    private boolean usageAllowed(){
-        android.app.AppOpsManager ops=getSystemService(android.app.AppOpsManager.class);
-        return ops.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,android.os.Process.myUid(),getPackageName())==android.app.AppOpsManager.MODE_ALLOWED;
-    }
-    private void apps(){
-        if(usageAllowed()){loadApps();return;}
-        new AlertDialog.Builder(this).setTitle("Find apps taking up space")
-            .setMessage("Optional Usage access lets Clenzy show app sizes and recent use, so you can decide what to uninstall. This information stays on your phone.")
-            .setPositiveButton("Enable usage access",(d,w)->{waitingUsage=true;startActivity(new Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS));})
-            .setNeutralButton("Continue without sizes",(d,w)->loadApps()).setNegativeButton("Cancel",null).show();
-    }
-    private record AppEntry(String name,String pkg,long bytes,long cache,long lastUsed) {}
-    private void loadApps(){
-        android.app.AlertDialog loading=new AlertDialog.Builder(this).setTitle("Analyzing apps…").setMessage("Reading storage reported by Android").setNegativeButton("Cancel",null).create();loading.show();
-        worker.execute(()->{
-            boolean allowed=usageAllowed();List<AppEntry> entries=new ArrayList<>();Set<String> seen=new HashSet<>();
-            Map<String,android.app.usage.UsageStats> usage=Map.of();
-            if(allowed)try{var stats=getSystemService(android.app.usage.UsageStatsManager.class).queryAndAggregateUsageStats(System.currentTimeMillis()-90L*86400000,System.currentTimeMillis());if(stats!=null)usage=stats;}catch(SecurityException ignored){}
-            Intent launcher=new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-            for(ResolveInfo info:getPackageManager().queryIntentActivities(launcher,0)){
-                String pkg=info.activityInfo.packageName;if(!seen.add(pkg))continue;
-                long bytes=-1,cache=-1,last=0;
-                if(allowed)try{var app=getPackageManager().getApplicationInfo(pkg,0);var stats=getSystemService(android.app.usage.StorageStatsManager.class).queryStatsForPackage(app.storageUuid==null?android.os.storage.StorageManager.UUID_DEFAULT:app.storageUuid,pkg,android.os.Process.myUserHandle());bytes=stats.getAppBytes()+stats.getDataBytes();cache=stats.getCacheBytes();}catch(Exception ignored){}
-                if(usage.containsKey(pkg))last=usage.get(pkg).getLastTimeUsed();
-                entries.add(new AppEntry(info.loadLabel(getPackageManager()).toString(),pkg,bytes,cache,last));
-            }
-            entries.sort(Comparator.comparingLong(AppEntry::bytes).reversed().thenComparing(AppEntry::name));
-            runOnUiThread(()->{if(isFinishing()||isDestroyed()||!loading.isShowing())return;loading.dismiss();
-                showApps(entries);
-            });
-        });
-    }
-    private void showApps(List<AppEntry> entries){
-        page.removeAllViews();page.addView(button("‹  Home",this::draw,false));
-        page.addView(text("Apps",28,ink));page.addView(text("Largest apps first",13,muted));
-        if(entries.isEmpty())page.addView(text("No visible apps were reported by Android.",14,muted));
-        for(AppEntry app:entries){
-            LinearLayout row=card();row.addView(text(app.name()+"  ·  "+(app.bytes()<0?"Size unavailable":size(app.bytes())),16,ink));
-            row.addView(text(app.lastUsed()>0?"Last used "+android.text.format.DateFormat.format("MMM d",app.lastUsed()):"No usage record available",12,muted));
-            MaterialButton manage=button("Manage app",()->new AlertDialog.Builder(this).setTitle(app.name()).setMessage((app.cache()<0?"":size(app.cache())+" cache included in app data.\n")+"Android Settings handles cache removal. Uninstalling may remove local app data.")
-                .setPositiveButton("App settings",(d,w)->startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+app.pkg()))))
-                .setNeutralButton("Uninstall",(d,w)->{try{startActivity(new Intent(Intent.ACTION_DELETE,Uri.parse("package:"+app.pkg())));}catch(ActivityNotFoundException e){message("Unavailable","Use Android app settings to uninstall.");}}).setNegativeButton("Cancel",null).show(),false);
-            row.addView(manage);page.addView(row,spaced());
-        }
-    }
-    private void message(String title,String body){
-        android.app.Dialog dialog=new android.app.Dialog(this);LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(20));content.setBackground(Aurora.panel(this,true));
-        TextView name=text(title,24,ink);name.setTypeface(null,Typeface.BOLD);content.addView(name);content.addView(text(body,15,muted),spaced());content.addView(button("Done",dialog::dismiss,false));dialog.setContentView(content);
-        dialog.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));dialog.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels-dp(40),-2);dialog.show();dialog.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels-dp(40),-2);
-    }
+    private void message(String title,String body){new AuroraDialog.Builder(this).setTitle(title).setMessage(body).setPositiveButton("Done",null).show();}
     private LinearLayout column(){LinearLayout v=new LinearLayout(this);v.setOrientation(LinearLayout.VERTICAL);return v;}
     private TextView text(String value,int size,int color){TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(color);v.setPadding(0,dp(7),0,dp(7));return v;}
     private LinearLayout card(){LinearLayout v=column();GradientDrawable shape=new GradientDrawable();shape.setColor(surface);shape.setCornerRadius(dp(24));v.setBackground(Aurora.glass(this,false));v.setPadding(dp(22),dp(18),dp(22),dp(18));return v;}

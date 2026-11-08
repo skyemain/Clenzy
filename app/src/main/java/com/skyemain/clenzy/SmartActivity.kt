@@ -2,7 +2,6 @@ package com.skyemain.clenzy
 
 import android.Manifest.permission.*
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.*
 import android.content.pm.PackageManager
 import android.graphics.Typeface
@@ -66,6 +65,7 @@ class SmartActivity:ComponentActivity(){
             val movedUris=moved.map{it.uri}.toSet()
             results=results.filterKeys{it.uri !in movedUris}
             withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.removeResults(run,movedUris)}}
+            CleanupHistory.record(this@SmartActivity,moved.sumOf{it.size},moved.size,waiting.size-moved.size)
             waiting=emptyList();submitting=false;selected.clear()
             Toast.makeText(this@SmartActivity,"${moved.size} moved to Trash",Toast.LENGTH_SHORT).show()
             review()
@@ -222,14 +222,14 @@ class SmartActivity:ComponentActivity(){
     private fun review(){
         val cat=category?:return dashboard();screen(cat,true)
         val rows=results.keys.filter{m->results.getValue(m).findings.any{it.category==cat} && (filter=="All"||m.source==filter||filter==(if(m.video)"Video" else "Photo"))}
-        val sorted=when(sort){1->rows.sortedByDescending{it.size};2->rows.sortedBy{it.stamp};3->rows.sortedByDescending{it.stamp};else->rows.sortedByDescending{it.size}}
+        val sorted=when(sort){1->rows.sortedBy{it.stamp};2->rows.sortedByDescending{it.stamp};else->rows.sortedByDescending{it.size}}
         val controls=LinearLayout(this);controls.setPadding(dp(8),0,dp(8),0);page.addView(controls)
         fun chip(name:String,action:()->Unit):MaterialButton{
             val control=MaterialButton(this).apply{text=name;Aurora.button(this);setOnClickListener{action()}}
             controls.addView(control,LinearLayout.LayoutParams(0,-2,1f).apply{setMargins(dp(3),0,dp(3),dp(4))})
             return control
         }
-        chip("Sort"){choices("Sort",arrayOf("Recommended","Largest","Oldest","Newest")){n->sort=n;review()}}
+        chip("Sort"){choices("Sort",arrayOf("Largest","Oldest","Newest")){n->sort=n;review()}}
         chip("Filter"){val opts=(listOf("All","Photo","Video")+results.keys.map{it.source}.distinct()).toTypedArray();choices("Filter",opts){n->filter=opts[n];review()}}
         val grid=GridView(this);grid.numColumns=3;grid.horizontalSpacing=0;grid.verticalSpacing=0;page.addView(grid,LinearLayout.LayoutParams(-1,0,1f))
         fun eligible()=rows
@@ -269,7 +269,7 @@ class SmartActivity:ComponentActivity(){
                 }
                 photo.setOnLongClickListener{
                     choices("Photo options",arrayOf("Preview","Review later")){n->
-                        if(n==0)runCatching{startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(m.uri)).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))}
+                        if(n==0)runCatching{val uri=Uri.parse(m.uri);startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri,contentResolver.getType(uri)?:if(m.video)"video/*" else "image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))}.onFailure{AuroraDialog.Builder(this@SmartActivity).setTitle("Preview unavailable").setMessage("No app can open this file, or it is no longer available.").setPositiveButton("Done",null).show()}
                         else lifecycleScope.launch{
                             results=withContext(Dispatchers.IO){SmartStore(this@SmartActivity).use{it.choice(m,"Review later");it.results(run)}}
                             selected.remove(m);review()
@@ -282,21 +282,10 @@ class SmartActivity:ComponentActivity(){
         updateActions()
     }
     private fun choices(title:String,options:Array<String>,choose:(Int)->Unit){
-        val dialog=android.app.Dialog(this)
-        val content=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL;setPadding(dp(20),dp(20),dp(20),dp(12));background=Aurora.panel(this@SmartActivity,true)}
-        content.addView(TextView(this).apply{text=title;textSize=23f;setTextColor(Aurora.INK);setTypeface(null,Typeface.BOLD);setPadding(0,0,0,dp(12))})
-        val scroll=ScrollView(this);val list=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};scroll.addView(list)
-        options.forEachIndexed{index,name->list.addView(MaterialButton(this).apply{
-            text=name;Aurora.button(this);gravity=Gravity.CENTER_VERTICAL or Gravity.START
-            setOnClickListener{dialog.dismiss();choose(index)}
-        },LinearLayout.LayoutParams(-1,-2))}
-        content.addView(scroll,LinearLayout.LayoutParams(-1,0,1f))
-        content.addView(MaterialButton(this).apply{text="Close";Aurora.button(this);setOnClickListener{dialog.dismiss()}})
-        dialog.setContentView(content);dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-        dialog.show();dialog.window?.setLayout(resources.displayMetrics.widthPixels-dp(24),minOf(dp(100+options.size*62),resources.displayMetrics.heightPixels*3/4))
+        AuroraDialog.Builder(this).setTitle(title).setItems(options){_,index->choose(index)}.setNegativeButton("Close",null).show()
     }
     private fun confirm(){
-        if(Build.VERSION.SDK_INT<30){AlertDialog.Builder(this).setMessage("System Trash requires Android 11 or later. Use Preview to manage media in your gallery.").setPositiveButton("OK",null).show();return}
+        if(Build.VERSION.SDK_INT<30){AuroraDialog.Builder(this).setMessage("System Trash requires Android 11 or later. Use Preview to manage media in your gallery.").setPositiveButton("OK",null).show();return}
         if(selected.size>2000){Toast.makeText(this,"Select up to 2,000 files per request.",Toast.LENGTH_LONG).show();return}
         submitting=true
         lifecycleScope.launch{

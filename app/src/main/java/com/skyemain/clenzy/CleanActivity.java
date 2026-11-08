@@ -1,7 +1,6 @@
 package com.skyemain.clenzy;
 
 import android.Manifest;
-import android.app.AlertDialog;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.graphics.*;
@@ -41,20 +40,20 @@ public final class CleanActivity extends AppCompatActivity {
         waitingStorage=saved!=null&&saved.getBoolean("waitingStorage");categoryOpened=saved!=null&&saved.getBoolean("categoryOpened");
         model.updates.observe(this,n->render());
         if(saved==null)begin();
-        getOnBackPressedDispatcher().addCallback(this,new androidx.activity.OnBackPressedCallback(true){@Override public void handleOnBackPressed(){if(model.busy){new AlertDialog.Builder(CleanActivity.this).setTitle(model.deleting?"Stop cleanup?":"Stop scan?").setMessage(model.deleting?"Files already removed cannot be restored. Wait for the current operation to finish stopping.":"No files have been changed.").setNegativeButton("Continue",null).setPositiveButton("Stop",(d,w)->model.cancel()).show();}else finish();}});
+        getOnBackPressedDispatcher().addCallback(this,new androidx.activity.OnBackPressedCallback(true){@Override public void handleOnBackPressed(){if(model.busy){new AuroraDialog.Builder(CleanActivity.this).setTitle(model.deleting?"Stop cleanup?":"Stop scan?").setMessage(model.deleting?"Files already removed cannot be restored. Wait for the current operation to finish stopping.":"No files have been changed.").setNegativeButton("Continue",null).setPositiveButton("Stop",(d,w)->model.cancel()).show();}else finish();}});
     }
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("waitingStorage",waitingStorage);out.putBoolean("categoryOpened",categoryOpened);super.onSaveInstanceState(out);}
     @Override protected void onResume(){super.onResume();if(waitingStorage){waitingStorage=false;if(hasStorage())startScan();else render();}}
     private boolean hasStorage(){return Build.VERSION.SDK_INT>=30?Environment.isExternalStorageManager():Build.VERSION.SDK_INT<29&&checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;}
     private void begin(){
         if(hasStorage()){startScan();return;}
-        if(Build.VERSION.SDK_INT==29){new AlertDialog.Builder(this).setTitle("Review photos and videos").setMessage("Android 10 supports media review. Automatic shared-file scanning is available on Android 11 and later.").setPositiveButton("Continue",(d,w)->{startActivity(new Intent(this,MainActivity.class).putExtra("tool","photos"));finish();}).setNegativeButton("Back",(d,w)->finish()).show();return;}
+        if(Build.VERSION.SDK_INT==29){new AuroraDialog.Builder(this).setTitle("Review photos and videos").setMessage("Android 10 supports media review. Automatic shared-file scanning is available on Android 11 and later.").setPositiveButton("Continue",(d,w)->{startActivity(new Intent(this,MainActivity.class).putExtra("tool","photos"));finish();}).setNegativeButton("Back",(d,w)->finish()).show();return;}
         permissionSheet();
     }
     private void permissionSheet(){
         BottomSheetDialog dialog=new BottomSheetDialog(this);sheet=dialog;LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(28));content.setBackground(Aurora.panel(this,false));
         content.addView(text("Storage access",26,ink));content.addView(text("Find large files, downloads and duplicates without choosing folders.",14,muted));
-        
+
         content.addView(button("Continue to storage access",true,()->{dialog.dismiss();if(Build.VERSION.SDK_INT>=30){waitingStorage=true;try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}}else requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE},21);}));
         content.addView(button("Not now",false,dialog::dismiss));dialog.setContentView(content);dialog.show();
     }
@@ -112,7 +111,7 @@ public final class CleanActivity extends AppCompatActivity {
         String requested=getIntent().getStringExtra("category");if(!categoryOpened&&requested!=null){categoryOpened=true;for(var group:groups)if(group.title().equals(requested)){page.post(()->{if(!isFinishing()&&!isDestroyed())showGroup(group);});break;}}
     }
     private void selection(){if(sheetSelection!=null){sheetSelection.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);sheetSelection.setText(model.selected.size()+" selected · "+size(ReviewRules.selectedBytes(model.files,model.selected)));}for(var group:currentGroups){TextView count=categoryCounts.get(group.title());if(count!=null){long n=group.files().stream().filter(f->model.selected.contains(f.uri())).count();count.setText(group.files().size()+(group.files().size()==1?" file":" files")+(n>0?" · "+n+" selected":""));}}if(cleanButton==null||selectedLabel==null)return;footer.setVisibility(model.selected.isEmpty()?View.GONE:View.VISIBLE);long bytes=ReviewRules.selectedBytes(model.files,model.selected);selectedLabel.setText(model.selected.size()+" files selected · "+size(bytes));cleanButton.setText(model.selected.isEmpty()?"Clean selected":"Clean selected · "+size(bytes));cleanButton.setEnabled(!model.selected.isEmpty()&&!model.busy);cleanButton.setAlpha(model.selected.isEmpty()?.45f:1f);}
-    private void confirm(){new AlertDialog.Builder(this).setTitle("Clear "+size(ReviewRules.selectedBytes(model.files,model.selected))+"?").setMessage("You selected "+model.selected.size()+" files. Shared-file deletion is permanent. Originals in duplicate groups will be kept.").setNegativeButton("Keep reviewing",null).setPositiveButton("Confirm cleanup",(d,w)->model.delete()).show();}
+    private void confirm(){new AuroraDialog.Builder(this).setTitle("Clear "+size(ReviewRules.selectedBytes(model.files,model.selected))+"?").setMessage("You selected "+model.selected.size()+" files. Shared-file deletion is permanent. Originals in duplicate groups will be kept.").setNegativeButton("Keep reviewing",null).setPositiveButton("Confirm cleanup",(d,w)->model.delete()).show();}
     private void showGroup(CleanupGroups.Group group){
         sheet=new BottomSheetDialog(this);LinearLayout content=column();content.setBackground(Aurora.panel(this,false));content.setPadding(dp(22),dp(16),dp(22),dp(16));
         View handle = new View(this);
@@ -146,7 +145,7 @@ public final class CleanActivity extends AppCompatActivity {
             content.addView(button("Scan again",false,()->{sheet.dismiss();begin();}));
         } else {
         LinearLayout controls=new LinearLayout(this);RecyclerView list=new RecyclerView(this);list.setLayoutManager(new LinearLayoutManager(this));FileAdapter adapter=new FileAdapter(group);list.setAdapter(adapter);
-        MaterialButton sort=button("Sort",false,()->new AlertDialog.Builder(this).setTitle("Sort files").setItems(new String[]{"Largest first","Oldest first","Newest first","Name"},(d,w)->{adapter.sort=w;adapter.refresh();}).show());controls.addView(sort);
+        MaterialButton sort=button("Sort",false,()->new AuroraDialog.Builder(this).setTitle("Sort files").setItems(new String[]{"Largest first","Oldest first","Newest first","Name"},(d,w)->{adapter.sort=w;adapter.refresh();}).show());controls.addView(sort);
         sheetSelection=text("",12,muted);selection();
         controls.addView(button(group.title().equals("Duplicate copies")?"Select extra copies":"Select all",false,()->{for(var f:adapter.visible)if(!group.keepers().contains(f.uri()))model.selected.add(f.uri());adapter.notifyDataSetChanged();selection();}),new LinearLayout.LayoutParams(0,-2,1));
         controls.addView(button("Clear",false,()->{for(var f:adapter.visible)model.selected.remove(f.uri());adapter.notifyDataSetChanged();selection();}));content.addView(controls);content.addView(list,new LinearLayout.LayoutParams(-1,0,1));content.addView(sheetSelection);
@@ -164,7 +163,7 @@ public final class CleanActivity extends AppCompatActivity {
             previews.execute(()->{try{java.io.File local=new java.io.File(java.net.URI.create(file.uri()));if(Build.VERSION.SDK_INT>=29&&file.name().toLowerCase(Locale.ROOT).matches(".*\\.(mp4|mov|mkv|webm|avi|3gp)$")){Bitmap thumbnail=android.media.ThumbnailUtils.createVideoThumbnail(local,new android.util.Size(160,160),null);runOnUiThread(()->{if(!isDestroyed()&&file.uri().equals(holder.image.getTag()))holder.image.setImageBitmap(thumbnail);});return;}BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeFile(local.getPath(),bounds);if(bounds.outWidth<1)return;BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=Math.max(1,Math.max(bounds.outWidth,bounds.outHeight)/160);Bitmap image=BitmapFactory.decodeFile(local.getPath(),options);if(image!=null)runOnUiThread(()->{if(!isDestroyed()&&file.uri().equals(holder.image.getTag()))holder.image.setImageBitmap(image);});}catch(Exception ignored){}});
         }
     }
-    private void preview(ReviewFile file){try{Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".files",new java.io.File(java.net.URI.create(file.uri())));String mime=getContentResolver().getType(uri);startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime==null?"*/*":mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){new AlertDialog.Builder(this).setMessage("No preview app is available for this file.").setPositiveButton("Done",null).show();}}
+    private void preview(ReviewFile file){try{Uri uri=androidx.core.content.FileProvider.getUriForFile(this,getPackageName()+".files",new java.io.File(java.net.URI.create(file.uri())));String mime=getContentResolver().getType(uri);startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime==null?"*/*":mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){new AuroraDialog.Builder(this).setMessage("No preview app is available for this file.").setPositiveButton("Done",null).show();}}
     private LinearLayout column(){LinearLayout result=new LinearLayout(this);result.setOrientation(LinearLayout.VERTICAL);return result;}
     private TextView text(String value,int size,int color){TextView result=new TextView(this);result.setText(value);result.setTextSize(size);result.setTextColor(color);result.setPadding(0,dp(7),0,dp(7));return result;}
     private MaterialButton button(String label,boolean primary,Runnable action){MaterialButton result=new MaterialButton(this);result.setText(label);result.setAllCaps(false);result.setCornerRadius(dp(18));result.setMinHeight(dp(primary?56:48));result.setTextColor(primary?Color.WHITE:accent);result.setBackgroundTintList(android.content.res.ColorStateList.valueOf(primary?Color.rgb(56,99,235):surface));Aurora.button(result);result.setOnClickListener(v->action.run());return result;}

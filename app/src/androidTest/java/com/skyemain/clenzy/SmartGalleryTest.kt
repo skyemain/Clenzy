@@ -65,6 +65,17 @@ class SmartGalleryTest {
 
 
                 }
+                val device=UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                requireNotNull(device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text("Sort")),5000)).click()
+                requireNotNull(device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text("Oldest")),5000)).click()
+                device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.text("Oldest")),5000)
+                device.findObject(androidx.test.uiautomator.By.text("Filter")).click()
+                requireNotNull(device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text("Photo")),5000)).click()
+                device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.text("Photo")),5000)
+                device.findObject(androidx.test.uiautomator.By.text("Select all")).click()
+                assertNotNull(device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text("Move to Trash (12)")),5000))
+                device.findObject(androidx.test.uiautomator.By.text("Clear all")).click()
+                assertTrue(device.wait(androidx.test.uiautomator.Until.gone(androidx.test.uiautomator.By.text("Move to Trash (12)")),5000))
                 UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).waitForIdle()
                 Thread.sleep(3000)
                 assertTrue(UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).takeScreenshot(File(context.getExternalFilesDir(null),"Clenzy-AI-gallery.png")))

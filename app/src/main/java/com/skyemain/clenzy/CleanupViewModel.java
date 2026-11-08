@@ -87,15 +87,7 @@ public final class CleanupViewModel extends AndroidViewModel {
             } catch (Exception e) { main.post(() -> { scanFailed=true;status = "Operation stopped. Scan again to verify remaining items."; busy = false; changed(); }); }
         });
     }
-    private void recordHistory(long bytes,int count,int skipped) {
-        var prefs=getApplication().getSharedPreferences("cleanup",0);
-        try {
-            org.json.JSONArray old=new org.json.JSONArray(prefs.getString("history","[]"));
-            org.json.JSONArray next=new org.json.JSONArray();next.put(new org.json.JSONObject().put("time",System.currentTimeMillis()).put("bytes",bytes).put("files",count).put("skipped",skipped));
-            for(int n=0;n<Math.min(19,old.length());n++)next.put(old.get(n));
-            prefs.edit().putString("history",next.toString()).putLong("lastClean",System.currentTimeMillis()).putLong("lastBytes",bytes).putInt("lastFiles",count).apply();
-        }catch(org.json.JSONException ignored) {status += " History could not be saved.";}
-    }
+    private void recordHistory(long bytes,int count,int skipped){CleanupHistory.record(getApplication(),bytes,count,skipped);}
     public void trashResult(boolean accepted) {
         pendingTrash=null;
         if(!accepted){status="Trash request cancelled. No cleanup was confirmed.";changed();return;}
