@@ -46,6 +46,10 @@ jobs:
           mkdir -p app/src/androidTest/assets
           curl -fL --retry 3 'https://raw.githubusercontent.com/scikit-image/scikit-image/v0.20.0/skimage/data/astronaut.png' -o app/src/androidTest/assets/person.png
           curl -fL --retry 3 'https://raw.githubusercontent.com/scikit-image/scikit-image/v0.20.0/skimage/data/chelsea.png' -o app/src/androidTest/assets/pet.png
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i 'testsrc2=size=1280x720:rate=24' \
             -f lavfi -i 'sine=frequency=440:sample_rate=48000' -t 2 \
             -c:v libx264 -preset ultrafast -crf 12 -pix_fmt yuv420p -c:a aac \
