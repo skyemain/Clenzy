@@ -26,7 +26,7 @@ class ScanBackgroundTest {
         context.getSharedPreferences("SmartActivity",0).edit().putString("run",task.id.toString()).commit()
         try{
             ActivityScenario.launch(SmartActivity::class.java).use{
-                val back=device.wait(Until.findObject(By.text("Back to Home")),10000)
+                val back=requireNotNull(device.wait(Until.findObject(By.text("Back to Home")),10000))
                 assertNotNull(back);assertTrue(back.visibleBounds.bottom>device.displayHeight*.8)
                 assertFalse(device.hasObject(By.text("Cancel scan")))
                 back.click()
@@ -48,7 +48,7 @@ class ScanBackgroundTest {
             val bitmap=Bitmap.createBitmap(800,600,Bitmap.Config.ARGB_8888)
             val canvas=Canvas(bitmap);canvas.drawColor(Color.WHITE)
             canvas.drawText("Payment confirmation",20f,180f,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK;textSize=62f})
-            repeat(6){n->
+            repeat(12){n->
                 val uri=requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,ContentValues().apply{put("_display_name","background-fixture-$n.png");put("mime_type","image/png")}))
                 fixtures+=uri;resolver.openOutputStream(uri).use{bitmap.compress(Bitmap.CompressFormat.PNG,100,requireNotNull(it))}
             };bitmap.recycle()
@@ -59,7 +59,8 @@ class ScanBackgroundTest {
                 val deadline=System.currentTimeMillis()+120000
                 while(notices.activeNotifications.none{it.id==1947} && System.currentTimeMillis()<deadline)Thread.sleep(100)
                 assertTrue("Foreground progress notification",notices.activeNotifications.any{it.id==1947})
-                device.waitForIdle();device.takeScreenshot(java.io.File(context.getExternalFilesDir(null),"Clenzy-AI-progress.png"))
+                device.takeScreenshot(java.io.File(context.getExternalFilesDir(null),"Clenzy-AI-progress.png"))
+                assertEquals(WorkInfo.State.RUNNING,manager.getWorkInfoById(id!!).get().state)
                 device.pressHome()
                 while(!manager.getWorkInfoById(id!!).get().state.isFinished && System.currentTimeMillis()<deadline)Thread.sleep(200)
                 assertEquals("Scan finishes while another screen is open",WorkInfo.State.SUCCEEDED,manager.getWorkInfoById(id!!).get().state)
