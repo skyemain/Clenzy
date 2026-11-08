@@ -1,2 +1,2 @@
-21c44bcdc16a1466c2e70e2265fc603e8ddf4f68fec3321e738cf061cb503164  Clenzy-1.0-android-arm64.apk
-def01f3d82594411d79bcb12b979868254ef7ade1a6e802177a0361eb83c32ee  Clenzy-1.0-android-play.aab
+9bac87522c6c513df4fb7e9d914cd58a56543424251518ccce45243409a35c17  Clenzy-1.0-android-arm64.apk
+a6036ebbc630d3cd664fb738f5b060dcd1b07e2db7afbcd0edafc75ab6f58a87  Clenzy-1.0-android-play.aab
