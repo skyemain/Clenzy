@@ -119,12 +119,7 @@ jobs:
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-gallery.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-menu.png screenshots/
             adb pull /sdcard/Android/data/com.skyemain.clenzy/files/Clenzy-AI-progress.png screenshots/
-            if [ -n "$CLENZY_KEYSTORE" ]; then
-              adb uninstall com.skyemain.clenzy
-              adb install app/build/outputs/apk/release/app-release.apk
-              adb shell am start -W -n com.skyemain.clenzy/.HomeActivity | tee screenshots/release-launch.txt
-              rg -q 'Status: ok' screenshots/release-launch.txt
-            fi
+            if [ -n "$CLENZY_KEYSTORE" ]; then adb uninstall com.skyemain.clenzy && adb install app/build/outputs/apk/release/app-release.apk && adb shell am start -W -n com.skyemain.clenzy/.HomeActivity > screenshots/release-launch.txt && cat screenshots/release-launch.txt && grep -q 'Status: ok' screenshots/release-launch.txt; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
