@@ -39,7 +39,21 @@ public class CleanJourneyTest {
     assertTrue(device.hasObject(By.textStartsWith("Shared files: allowed")));
     device.findObject(By.text("Done")).click();
     assertTrue("Access dialog dismissed",device.wait(Until.gone(By.text("Shared files access")),5000));device.waitForIdle();
-    device.pressBack();boolean returned=device.wait(Until.hasObject(By.text("Your cleanup")),5000);if(!returned){device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-navigation-failure.png"));device.dumpWindowHierarchy(new File(context.getExternalFilesDir(null),"navigation-failure.xml"));}assertTrue(returned);
+    // Wait for input focus to return to Settings after the dialog window closes.
+    var settingsFocused = new java.util.concurrent.atomic.AtomicBoolean();
+    var instrumentation = InstrumentationRegistry.getInstrumentation();
+    for (int attempt = 0; attempt < 50 && !settingsFocused.get(); attempt++) {
+        instrumentation.runOnMainSync(() -> settingsFocused.set(
+            androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED).stream()
+                .anyMatch(activity -> activity instanceof HomeActivity && activity.hasWindowFocus())));
+        if (!settingsFocused.get()) Thread.sleep(100);
+    }
+    assertTrue("Settings regained window focus", settingsFocused.get());
+    var back = device.wait(Until.findObject(By.desc("Back").clickable(true)),5000);
+    assertNotNull("Settings Back is visible", back);
+    back.click();
+    boolean returned=device.wait(Until.hasObject(By.text("Your cleanup")),5000);if(!returned){device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-navigation-failure.png"));device.dumpWindowHierarchy(new File(context.getExternalFilesDir(null),"navigation-failure.xml"));}assertTrue(returned);
     var duplicates=device.wait(Until.findObject(By.text("Duplicate copies")),5000);assertNotNull(duplicates);duplicates.click();
     var select=device.wait(Until.findObject(By.text("Select extra copies")),5000);assertNotNull(select);select.click();
     scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertEquals(1,m.selected.size());assertFalse(m.selected.contains(first.toURI().toString()));});
