@@ -23,6 +23,7 @@ public final class HomeActivity extends AppCompatActivity {
     @Override public void onCreate(Bundle state){
         int theme=getSharedPreferences("cleanup",0).getInt("theme",-1);
         applyTheme(theme); super.onCreate(state); getSharedPreferences("locked_media",0).edit().clear().apply(); draw();
+        getOnBackPressedDispatcher().addCallback(this,new androidx.activity.OnBackPressedCallback(true){@Override public void handleOnBackPressed(){finish();}});
         if(getIntent().getBooleanExtra("settings",false))settings();
     }
     @Override protected void onResume(){super.onResume(); if(page!=null){if(getIntent().getBooleanExtra("settings",false))settings();else draw();}}

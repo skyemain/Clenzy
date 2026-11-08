@@ -39,7 +39,7 @@ public class CleanJourneyTest {
     assertTrue(device.hasObject(By.textStartsWith("Shared files: allowed")));
     device.findObject(By.text("Done")).click();
     assertTrue("Access dialog dismissed",device.wait(Until.gone(By.text("Shared files access")),5000));device.waitForIdle();
-    device.pressBack();assertTrue(device.wait(Until.hasObject(By.text("Your cleanup")),5000));
+    device.pressBack();boolean returned=device.wait(Until.hasObject(By.text("Your cleanup")),5000);if(!returned){device.takeScreenshot(new File(context.getExternalFilesDir(null),"Clenzy-navigation-failure.png"));device.dumpWindowHierarchy(new File(context.getExternalFilesDir(null),"navigation-failure.xml"));}assertTrue(returned);
     var duplicates=device.wait(Until.findObject(By.text("Duplicate copies")),5000);assertNotNull(duplicates);duplicates.click();
     var select=device.wait(Until.findObject(By.text("Select extra copies")),5000);assertNotNull(select);select.click();
     scenario.onActivity(a->{var m=new ViewModelProvider(a).get(CleanupViewModel.class);assertEquals(1,m.selected.size());assertFalse(m.selected.contains(first.toURI().toString()));});

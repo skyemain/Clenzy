@@ -33,9 +33,9 @@ public class SharedStorageTest {
     scenario.onActivity(activity->{var model=new androidx.lifecycle.ViewModelProvider(activity).get(CleanupViewModel.class);assertTrue("Automatic scan: "+model.status+"; files="+model.files,model.files.stream().anyMatch(f->f.name().equals("first.bin")));});
     device.waitForIdle();
     var select=device.findObject(androidx.test.uiautomator.By.text("Select extra copies"));assertNotNull(select);select.click();
-    var clean=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(java.util.regex.Pattern.compile("CLEAN SELECTED.*")).enabled(true)),5000);assertNotNull(clean);clean.click();
+    var clean=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(java.util.regex.Pattern.compile("Clean selected.*")).enabled(true)),5000);assertNotNull(clean);clean.click();
     var confirm=device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.text(java.util.regex.Pattern.compile("(?i)Continue"))),5000);assertNotNull(confirm);confirm.click();
-    assertTrue(device.wait(androidx.test.uiautomator.Until.hasObject(androidx.test.uiautomator.By.text("CLEANING COMPLETE")),10000));assertTrue(first.exists()^second.exists());
+    assertTrue(device.wait(androidx.test.uiautomator.Until.hasObject(androidx.test.uiautomator.By.text("Cleanup complete")),10000));assertTrue(first.exists()^second.exists());
    }
   }finally{first.delete();second.delete();folder.delete();}
  }

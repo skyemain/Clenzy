@@ -144,8 +144,8 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
     }
     private void confirmDelete() {
         boolean all = ReviewRules.selectsEveryCopy(model.files, model.selected);
-        new AuroraDialog.Builder(this).setTitle(model.media ? "Move selected media to Trash?" : "Permanently delete selected files?")
-            .setMessage((all ? "You selected EVERY copy in a duplicate group.\n\n" : "") + (model.media ? "Android will ask you to confirm. Trashed items may still use storage until removed." : "There may be no recycle bin. Cloud providers may delete synced copies too. Age does not mean a file is unnecessary."))
+        new AuroraDialog.Builder(this).setTitle(model.ownCache?"Clear selected cache?":model.media ? "Move selected media to Trash?" : "Permanently delete selected files?")
+            .setMessage((all ? "You selected EVERY copy in a duplicate group.\n\n" : "") + (model.ownCache?"Only selected Clenzy temporary files will be deleted. Your photos and documents are not included.":model.media ? "Android will ask you to confirm. Trashed items may still use storage until removed." : "There may be no recycle bin. Cloud providers may delete synced copies too. Age does not mean a file is unnecessary."))
             .setNegativeButton("Cancel", null).setPositiveButton("Continue", (d,w) -> model.delete()).show();
     }
     private void showResults() {
@@ -154,7 +154,7 @@ public class MainActivity extends androidx.appcompat.app.AppCompatActivity {
         result.addView(label(model.movedToTrash ? model.removedFiles+" items moved to Trash" : bytes(model.recoveredBytes)+" successfully deleted",30,ink));
         result.addView(label(model.removedFiles+(model.movedToTrash?" items trashed · ":" files removed · ")+model.skippedFiles+" skipped or unavailable",16,muted));
         StatFs disk=new StatFs(Environment.getDataDirectory().getAbsolutePath());result.addView(label(bytes(disk.getAvailableBytes())+" available now",18,muted));
-        result.addView(label((model.movedToTrash ? "Trashed media may still use storage until the gallery empties Trash. " : "")+"Deletion totals reflect verified provider operations. Actual free space can differ because of provider trash, cloud storage and filesystem accounting.",13,muted));
+        if(!model.ownCache)result.addView(label((model.movedToTrash ? "Trashed media may still use storage until the gallery empties Trash. " : "")+"Deletion totals reflect verified provider operations. Actual free space can differ because of provider trash, cloud storage and filesystem accounting.",13,muted));
         result.addView(button("Done",this::finish));setContentView(result);
     }
     private void chooseFolder() {
