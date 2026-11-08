@@ -23,7 +23,7 @@ jobs:
           java-version: '17'
       - uses: android-actions/setup-android@v4
         with:
-          packages: platform-tools
+          packages: platform-tools platforms;android-36 build-tools;35.0.0
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
@@ -50,9 +50,19 @@ jobs:
         env:
           CLENZY_STORE_PASSWORD: ${{ secrets.CLENZY_STORE_PASSWORD }}
         run: gradle testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease assembleDebugAndroidTest
+      - name: Build and validate Play bundle and ARM64 APK
+        env:
+          CLENZY_STORE_PASSWORD: ${{ secrets.CLENZY_STORE_PASSWORD }}
+        run: |
+          gradle assembleRelease -PclenzyArm64
+          apk=$(find app/build/outputs/apk/release -name 'app-release*.apk' -print -quit)
+          test -n "$apk"
+          bash build/check-play-bundle.sh app/build/outputs/bundle/release/app-release.aab "$apk"
       - name: Verify release signature
         if: env.CLENZY_KEYSTORE != ''
-        run: '"$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk'
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -60,7 +70,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 36
           profile: pixel_5
           arch: x86_64
           cores: 2
@@ -109,16 +119,17 @@ jobs:
           if [ "$(git rev-parse origin/android)" != "${{ github.sha }}" ]; then exit 0; fi
           mkdir -p release
           rm -f release/Clenzy-*-android-candidate.apk
-          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-1.0-android-candidate.apk
-          (cd release && sha256sum *.apk > SHA256SUMS.txt)
+          cp app/build/outputs/apk/release/app-release.apk release/Clenzy-1.0-android-arm64.apk
+          cp app/build/outputs/bundle/release/app-release.aab release/Clenzy-1.0-android-play.aab
+          (cd release && sha256sum Clenzy-1.0-android-arm64.apk Clenzy-1.0-android-play.aab > SHA256SUMS.txt)
           tag="android-v1.0-build-${GITHUB_RUN_NUMBER}"
-          apk="release/Clenzy-1.0-android-candidate.apk"
+          apk="release/Clenzy-1.0-android-arm64.apk"
           if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Android 1.0" --notes "Signed Android candidate with on-device AI Smart Clean." --prerelease --latest=false
+            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Android 1.0" --notes "Signed ARM64 APK for direct installation and Android App Bundle for Google Play submission. Includes offline AI Smart Clean." --prerelease --latest=false
           fi
-          gh release upload "$tag" "$apk" release/SHA256SUMS.txt --clobber
+          gh release upload "$tag" "$apk" release/Clenzy-1.0-android-play.aab release/SHA256SUMS.txt --clobber
           printf 'https://github.com/%s/releases/download/%s/%s\n' "$GITHUB_REPOSITORY" "$tag" "$(basename "$apk")" > release/ANDROID-DOWNLOAD.txt
-          rm "$apk"
+          rm "$apk" release/Clenzy-1.0-android-play.aab
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add release

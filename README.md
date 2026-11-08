@@ -1,6 +1,6 @@
 # Clenzy for Android
 
-Version 1.7.0. Development candidate; not approved for production. Commit Android changes only to `android`. Keep this as the only Markdown file. Main remains the approved production catalog.
+Version 1.0. Android release candidate. Commit Android changes only to `android`. Keep this as the only Markdown file. Main remains the approved production catalog.
 
 ## Shared-storage workflow
 Scan my phone requests one optional all-files grant (Android 11+) and scans primary shared storage automatically. Category shortcuts open their sheet even when empty; empty results explain the primary-storage scope and provide access repair/rescan. Videos include every size. Screenshot detection supports Screen captures and spaced/hyphenated names. Downloads scans recognize both Download and Downloads. Root listing failures fail the scan; unreadable subfolders and traversal limits are reported as partial scans. All-files access is rechecked at scan execution. Traversal is breadth-first to reduce deep-folder starvation. The results screen always shows duplicate copies, videos, Downloads and screenshots with real counts, including zero. Other large files appear when found. Categories can overlap; summary bytes and deletion count each URI once. Duplicate originals stay protected in every category. No folder picker is needed for this flow. Android/data and Android/obb are excluded; Android/media is included. Other apps’ private caches remain inaccessible. Android 10 uses media-only fallback; Android 8/9 use storage runtime permission.
@@ -11,7 +11,7 @@ All-files access requires separate Google Play eligibility review; this is a sid
 
 ## Build and signing
 
-Use JDK 17, Gradle 8.11.1, Android SDK 35 and AGP 8.9.2. Run `gradle testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease`. With an emulator/device, run `gradle connectedDebugAndroidTest`.
+Use JDK 17, Gradle 8.11.1, Android SDK 36 and AGP 8.9.2. Run `gradle testDebugUnitTest lintDebug assembleDebug assembleRelease bundleRelease`. With an emulator/device, run `gradle connectedDebugAndroidTest`.
 
 CI restores the permanent release key from encrypted repository secrets CLENZY_KEYSTORE_BASE64 and CLENZY_STORE_PASSWORD. PKCS12 alias: clenzy. Never commit the key or password; keep an independent secure backup. Local signing accepts CLENZY_KEYSTORE (absolute path) and CLENZY_STORE_PASSWORD environment variables. Missing secrets produce an unsigned release and prevent publication. Version codes increase with the workflow run number. The signed candidate is published under release/ after successful checks. Switching from the old debug candidate requires a one-time uninstall; subsequent upgrades must retain the same release key.
 
@@ -66,3 +66,16 @@ Scan navigation: Back to Home (including in-app Back while scanning) cancels the
 The public version is 1.0; Android versionCode remains monotonic so this is an update to earlier 2.x candidates. Shared AuroraDialog handles app-owned confirmations, sorting, filters, history and explanations, with bounded scrolling for longer text/lists. Runtime permission dialogs, MediaStore Trash consent, Android Settings, document providers and external media viewers belong to Android or the selected app and retain their native interfaces.
 
 Fixed: default app AlertDialogs; legacy category spinner; redundant cache duplicate-selection controls; inconsistent margins/result insets; silent AI preview failure; duplicate Recommended/Largest sort choices; media access off versus partial status; and missing AI cleanup-history entries. Automated journeys cover category shortcuts, sorting/filtering, select/clear, cleanup confirmation/cancel, cache deletion, Settings navigation, Android Trash handoff, result persistence, background completion and scan cancellation. These are emulator checks, not an exhaustive test of every Samsung One UI/Android version or external gallery app.
+
+
+## Google Play submission
+
+Upload the signed Android App Bundle (.aab) through Play Console. Use the signed ARM64 APK for direct installation on compatible phones, such as the Galaxy S24. The bundle includes supported architectures so Play can deliver the APK set for each device. The vision and supporting ML models remain bundled for offline use. To build only the ARM64 APK locally, run `gradle assembleRelease -PclenzyArm64`.
+
+Before submitting, configure Play App Signing and confirm whether Google Play and direct installs need to share the existing app signing identity. Fill out the Data safety form, provide a public privacy policy URL, and complete the applicable permissions and foreground service declarations. Review ML Kit SDK diagnostics when completing Data safety. Photos, videos, file names, and OCR text used for cleanup are processed locally by Clenzy. No photo or video is uploaded by the scan.
+
+- **All files access:** Scan enumerates files in primary shared storage and identifies downloads, large files and exact duplicate files, including documents that are outside the photo picker. It opens Android’s consent screen before scanning and deletes only items confirmed by the user. Explain why picking individual files or folders would not provide automatic shared-storage discovery and cross-folder duplicate review.
+- **Photo and video access:** AI Smart Clean repeatedly analyzes the authorized library for duplicates and review categories. It accepts selected-media access when the user grants only part of the library. Android handles Trash confirmation.
+- **Foreground service:** A user-started AI scan can continue while the user switches apps. An ongoing notification reports progress. The scan stops when complete or canceled.
+
+These declarations are subject to Google Play review. Restricting access to picked items would change how automatic full-library or shared-storage scans work.

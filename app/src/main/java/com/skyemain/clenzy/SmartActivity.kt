@@ -73,7 +73,18 @@ class SmartActivity:ComponentActivity(){
 
         }
     }
-    override fun onCreate(state:Bundle?){super.onCreate(state);run=getPreferences(0).getString("run","").orEmpty()
+    override fun onCreate(state:Bundle?){
+        super.onCreate(state)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    scanning -> homeDuringScan()
+                    category != null -> dashboard()
+                    else -> finish()
+                }
+            }
+        })
+        run=getPreferences(0).getString("run","").orEmpty()
         if(run.isEmpty())landing() else observe(UUID.fromString(run),state?.getStringArrayList("pending").orEmpty())
     }
     override fun onSaveInstanceState(out:Bundle){super.onSaveInstanceState(out);out.putStringArrayList("pending",ArrayList(waiting.map{it.uri}))}
@@ -292,5 +303,4 @@ class SmartActivity:ComponentActivity(){
                 catch(_:Exception){submitting=false;Toast.makeText(this@SmartActivity,"Android could not open Trash confirmation.",Toast.LENGTH_LONG).show()}
         }
     }
-    @Deprecated("Android back navigation") override fun onBackPressed(){if(scanning)homeDuringScan() else if(category!=null)dashboard() else super.onBackPressed()}
 }

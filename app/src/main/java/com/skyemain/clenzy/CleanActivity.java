@@ -52,7 +52,7 @@ public final class CleanActivity extends AppCompatActivity {
     }
     private void permissionSheet(){
         BottomSheetDialog dialog=new BottomSheetDialog(this);sheet=dialog;LinearLayout content=column();content.setPadding(dp(24),dp(24),dp(24),dp(28));content.setBackground(Aurora.panel(this,false));
-        content.addView(text("Storage access",26,ink));content.addView(text("Find large files, downloads and duplicates without choosing folders.",14,muted));
+        content.addView(text("Storage access",26,ink));content.addView(text("Clenzy uses shared storage access to find large files, downloads and duplicates on this device. Files stay on your device, and you choose what to remove.",14,muted));
 
         content.addView(button("Continue to storage access",true,()->{dialog.dismiss();if(Build.VERSION.SDK_INT>=30){waitingStorage=true;try{startActivity(new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,Uri.parse("package:"+getPackageName())));}catch(ActivityNotFoundException e){startActivity(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION));}}else requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE,Manifest.permission.WRITE_EXTERNAL_STORAGE},21);}));
         content.addView(button("Not now",false,dialog::dismiss));dialog.setContentView(content);dialog.show();
