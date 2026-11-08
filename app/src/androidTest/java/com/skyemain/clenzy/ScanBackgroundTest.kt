@@ -49,7 +49,7 @@ class ScanBackgroundTest {
             val canvas=Canvas(bitmap);canvas.drawColor(Color.WHITE)
             canvas.drawText("Payment confirmation",20f,180f,Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.BLACK;textSize=62f})
             repeat(12){n->
-                val uri=requireNotNull(resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,ContentValues().apply{put("_display_name","background-fixture-$n.png");put("mime_type","image/png")}))
+                val uri=requireNotNull(resolver.insert(MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),ContentValues().apply{put("_display_name","background-fixture-$n.png");put("mime_type","image/png")}))
                 fixtures+=uri;resolver.openOutputStream(uri).use{bitmap.compress(Bitmap.CompressFormat.PNG,100,requireNotNull(it))}
             };bitmap.recycle()
             context.getSharedPreferences("SmartActivity",0).edit().remove("run").putBoolean("askedNotifications",true).commit()
