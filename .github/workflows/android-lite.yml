@@ -69,7 +69,7 @@ jobs:
             adb shell wm density 280
             adb shell wm dismiss-keyguard
             adb shell am force-stop com.android.launcher3
-            gradle connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true || { find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} +; adb logcat -d -s AndroidRuntime; exit 1; }
+            gradle connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true || { find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} +; adb logcat -d -s AndroidRuntime ClenzyLite VideoView MediaPlayer MediaCodec; exit 1; }
             adb uninstall com.skyemain.clenzylite
             adb install app/build/outputs/apk/release/app-release.apk
             adb shell am start -W -n com.skyemain.clenzylite/.LiteActivity | tee launch.txt

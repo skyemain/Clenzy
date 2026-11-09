@@ -150,7 +150,12 @@ public class LiteJourneyTest {
                     find(By.text("Regular photos and videos")).click();
                 }
                 find(By.text("Play")).click();
-                find(By.text("Pause"));
+                var playback = device.wait(Until.findObject(By.text(Pattern.compile("Pause|Replay"))), 9000);
+                if (playback == null) {
+                    var hierarchy = new java.io.ByteArrayOutputStream();
+                    device.dumpWindowHierarchy(hierarchy);
+                    fail("Video playback did not start: " + hierarchy.toString("UTF-8"));
+                }
             }
         } finally { clean(photo, video); }
     }

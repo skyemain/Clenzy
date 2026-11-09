@@ -41,6 +41,7 @@ public final class LiteActivity extends ComponentActivity {
     private ReviewSession review;
     private FrameLayout root;
     private VideoView player;
+    private Button playbackButton;
     private Dialog sheet;
     private boolean busy, light, previewReady;
     private int access = -1;
@@ -69,7 +70,7 @@ public final class LiteActivity extends ComponentActivity {
     }
 
     @Override protected void onPause() {
-        if (player != null) player.pause();
+        pauseVideo();
         super.onPause();
     }
 
@@ -189,6 +190,7 @@ public final class LiteActivity extends ComponentActivity {
         controls.setPadding(dp(5), dp(4), dp(8), dp(4));
         controls.setBackground(surface(0xea17141e, 15));
         var play = overlayButton("Play", () -> {});
+        playbackButton = play;
         controls.addView(play);
         var seek = new SeekBar(this);
         seek.setContentDescription("Video position");
@@ -216,10 +218,11 @@ public final class LiteActivity extends ComponentActivity {
                 video.start();
                 play.setEnabled(true);
                 play.setText("Pause");
-                tickVideo(video, play, seek);
+                tickVideo(video, seek);
             });
             video.setOnCompletionListener(mp -> play.setText("Replay"));
             video.setOnErrorListener((mp, what, extra) -> {
+                android.util.Log.w("ClenzyLite", "Platform video player error: " + what + "/" + extra);
                 if (video == player) {
                     stopVideo();
                     root.removeView(video);
@@ -242,11 +245,17 @@ public final class LiteActivity extends ComponentActivity {
         });
     }
 
-    private void tickVideo(VideoView video, Button play, SeekBar seek) {
+    private void tickVideo(VideoView video, SeekBar seek) {
         if (video != player) return;
         seek.setProgress(video.getCurrentPosition());
-        if (!video.isPlaying() && "Pause".contentEquals(play.getText())) play.setText("Play");
-        seek.postDelayed(() -> tickVideo(video, play, seek), 250);
+        seek.postDelayed(() -> tickVideo(video, seek), 250);
+    }
+
+    private void pauseVideo() {
+        if (player != null && player.isPlaying()) {
+            player.pause();
+            if (playbackButton != null) playbackButton.setText("Play");
+        }
     }
 
     private void stopVideo() {
@@ -310,7 +319,7 @@ public final class LiteActivity extends ComponentActivity {
 
     private void request(ReviewSession.Item item, ReviewSession.Removed undo) {
         busy = true;
-        if (player != null) player.pause();
+        pauseVideo();
         worker.execute(() -> {
             Boolean isTrashed = Gallery.trashState(getContentResolver(), item, undo == null);
             runOnUiThread(() -> {
@@ -407,7 +416,7 @@ public final class LiteActivity extends ComponentActivity {
     }
 
     private LinearLayout sheet(String title) {
-        if (player != null) player.pause();
+        pauseVideo();
         if (sheet != null) sheet.dismiss();
         sheet = new Dialog(this);
         sheet.requestWindowFeature(Window.FEATURE_NO_TITLE);
