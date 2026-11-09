@@ -56,6 +56,13 @@ public final class LiteActivity extends ComponentActivity {
 
     private final androidx.activity.result.ActivityResultLauncher<String[]> permission =
         registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), grants -> load());
+    private final androidx.activity.result.ActivityResultLauncher<Intent> mediaSettings =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (Build.VERSION.SDK_INT >= 31 && MediaStore.canManageMedia(this) && Gallery.access(this) != 0) {
+                prefs.edit().putBoolean("accessSetupV2", true).apply();
+            }
+            load();
+        });
     private final androidx.activity.result.ActivityResultLauncher<IntentSenderRequest> trash =
         registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(),
             result -> onTrashResult(result.getResultCode() == Activity.RESULT_OK));
@@ -92,10 +99,8 @@ public final class LiteActivity extends ComponentActivity {
 
     private void load() {
         access = Gallery.access(this);
-        if (access == 0) {
-            resetScreen();
-            var intro = center("Clenzy Lite", "Swipe through your photos and videos.");
-            intro.addView(button("Allow gallery access", true, () -> permission.launch(Gallery.permissions())));
+        if (access == 0 || !prefs.getBoolean("accessSetupV2", false)) {
+            showSetup();
             return;
         }
         final int level = access;
@@ -120,6 +125,50 @@ public final class LiteActivity extends ComponentActivity {
                 });
             }
         });
+    }
+
+    private void showSetup() {
+        ++loadVersion;
+        resetScreen();
+        var content = column();
+        content.setPadding(dp(24), dp(32), dp(24), dp(24));
+        root.addView(content, new FrameLayout.LayoutParams(-1, -1));
+        content.addView(label("Clenzy Lite", 18, light ? 0xff6550b4 : 0xffd3c6ff));
+        var title = label("A little setup.\nThen just swipe.", 32, ink());
+        title.setTypeface(null, Typeface.BOLD);
+        content.addView(title);
+        content.addView(label("Connect your gallery and enable smooth swiping.", 15, muted()));
+        content.addView(label(access == 0 ? "1  Photos & videos" : "✓  Photos & videos connected", 18, ink()));
+        content.addView(label(access == 0 ? "Choose all media or selected items through Android." :
+            (access & 3) == 3 ? "All photos and videos allowed." : "Only your authorized media will appear.", 14, muted()));
+        boolean managed = Build.VERSION.SDK_INT >= 31 && MediaStore.canManageMedia(this);
+        content.addView(label(managed ? "✓  Media management enabled" : "2  Trash without interruptions", 18, ink()));
+        content.addView(label(Build.VERSION.SDK_INT < 31 ? "Android 11 requires confirmation for Trash and Restore." :
+            managed ? "Android can skip individual Trash prompts for accessible media." :
+            "Enable Clenzy Lite in Android’s Media management apps. You approve this once.", 14, muted()));
+        content.addView(new View(this), new LinearLayout.LayoutParams(1, 0, 1));
+        String action = access == 0 ? "Allow gallery access" : managed || Build.VERSION.SDK_INT < 31 ? "Start swiping" : "Enable media management";
+        content.addView(button(action, true, () -> {
+            if (access == 0) permission.launch(Gallery.permissions());
+            else if (Build.VERSION.SDK_INT >= 31 && !MediaStore.canManageMedia(this)) openMediaSettings();
+            else finishSetup();
+        }), new LinearLayout.LayoutParams(-1, -2));
+        if (access != 0 && Build.VERSION.SDK_INT >= 31 && !managed) {
+            content.addView(button("Continue with confirmations", false, this::finishSetup), new LinearLayout.LayoutParams(-1, -2));
+        }
+    }
+
+    private void finishSetup() {
+        prefs.edit().putBoolean("accessSetupV2", true).apply();
+        load();
+    }
+
+    private void openMediaSettings() {
+        try {
+            mediaSettings.launch(new Intent(Settings.ACTION_REQUEST_MANAGE_MEDIA, Uri.parse("package:" + getPackageName())));
+        } catch (android.content.ActivityNotFoundException error) {
+            showBanner("Media management is unavailable. Continue with Android confirmations.", false, false);
+        }
     }
 
     private void show(String notice, boolean offerUndo) {
@@ -155,11 +204,12 @@ public final class LiteActivity extends ComponentActivity {
             count.setBackground(surface(0xdb17141e, 20));
             header.addView(count);
             header.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1));
-            var star = overlayButton("", () -> {
+            var star = new CompactControl(this, false);
+            star.setOnClickListener(view -> {
                 if (!busy && item.equals(review.current())) {
                     review.star(item);
                     saveStars();
-                    setStar((Button) header.getChildAt(2), item);
+                    setStar((CompactControl) header.getChildAt(2), item);
                 }
             });
             setStar(star, item);
@@ -183,7 +233,15 @@ public final class LiteActivity extends ComponentActivity {
                 });
             });
         }
-        if (notice != null) showBanner(notice, offerUndo, item != null && item.video());
+        var undoControl = new CompactControl(this, true);
+        undoControl.setCount(review.undoCount());
+        undoControl.setEnabled(review.undoCount() > 0);
+        undoControl.setContentDescription(review.undoCount() > 0 ? "Undo Trash · " + review.undoCount() : "Undo unavailable");
+        undoControl.setOnClickListener(view -> undo());
+        var undoParams = new FrameLayout.LayoutParams(dp(48), dp(48), Gravity.BOTTOM | Gravity.START);
+        undoParams.setMargins(dp(12), 0, 0, dp(item != null && item.video() ? 72 : 12));
+        root.addView(undoControl, undoParams);
+        if (notice != null) showBanner(notice, false, item != null && item.video());
     }
 
     private void showSwipeTutorial(ReviewSession.Item item) {
@@ -208,11 +266,9 @@ public final class LiteActivity extends ComponentActivity {
                 .withEndAction(() -> host.removeView(cue)).start()).start();
     }
 
-    private void setStar(Button star, ReviewSession.Item item) {
+    private void setStar(CompactControl star, ReviewSession.Item item) {
         boolean marked = review.isStarred(item);
-        star.setText(marked ? "★" : "☆");
-        star.setTextSize(24);
-        star.setTextColor(marked ? 0xffdbc9ff : Color.WHITE);
+        star.setMarked(marked);
         star.setContentDescription(marked ? "Unstar current item" : "Star current item");
         star.setSelected(marked);
     }
@@ -406,7 +462,9 @@ public final class LiteActivity extends ComponentActivity {
                 }
                 if (undo == null) review.trashed(item); else review.restored(undo);
                 saveStars();
-                show(undo == null ? "Moved to Trash" : "Restored", true);
+                show(null, false);
+                root.announceForAccessibility(undo == null ? "Moved to Trash" : "Restored");
+                root.performHapticFeedback(android.view.HapticFeedbackConstants.CONFIRM);
             });
         });
     }
@@ -429,14 +487,7 @@ public final class LiteActivity extends ComponentActivity {
         if (Build.VERSION.SDK_INT < 31) return;
         var menu = sheet("Swipe without prompts");
         menu.addView(label("Allow Clenzy Lite under Android’s Media management apps. With full gallery access, this can skip Android’s prompts when moving items to Trash or restoring them.", 15, muted()));
-        row(menu, "Open Android settings", () -> {
-            try {
-                startActivity(new Intent(Settings.ACTION_REQUEST_MANAGE_MEDIA, Uri.parse("package:" + getPackageName())));
-            } catch (android.content.ActivityNotFoundException error) {
-                showBanner("Media management settings are unavailable on this device", false,
-                    review.current() != null && review.current().video());
-            }
-        });
+        row(menu, "Open Android settings", this::openMediaSettings);
         row(menu, "Back", this::options);
     }
 
@@ -507,10 +558,10 @@ public final class LiteActivity extends ComponentActivity {
         var status = label(message, 14, Color.WHITE);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         banner.addView(status, new LinearLayout.LayoutParams(0, -2, 1f));
-        if (offerUndo && review.undoCount() > 0) banner.addView(overlayButton("Undo", this::undo));
+
         var host = root;
         host.addView(banner, overlayParams(Gravity.BOTTOM, aboveVideo ? 69 : 12));
-        banner.postDelayed(() -> host.removeView(banner), offerUndo ? 5200 : 1900);
+        banner.postDelayed(() -> host.removeView(banner), 1900);
     }
 
     private void resetScreen() {

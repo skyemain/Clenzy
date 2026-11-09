@@ -30,6 +30,7 @@ public class LiteJourneyTest {
     private final UiDevice device = UiDevice.getInstance(instrumentation);
 
     private void grantMedia() {
+        context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().putBoolean("accessSetupV2", true).commit();
         instrumentation.getUiAutomation().grantRuntimePermission(context.getPackageName(), Manifest.permission.READ_MEDIA_IMAGES);
         instrumentation.getUiAutomation().grantRuntimePermission(context.getPackageName(), Manifest.permission.READ_MEDIA_VIDEO);
     }
@@ -109,17 +110,18 @@ public class LiteJourneyTest {
                 find(By.text("1 / 1"));
                 assertEquals(Boolean.TRUE, Gallery.trashState(context.getContentResolver(), items.get(1), false));
 
-                find(By.text("Undo")).click();
+                find(By.desc(Pattern.compile("Undo Trash · [12]"))).click();
                 approveAndroid();
-                find(By.text("Restored"));
+                find(By.desc("Undo Trash · 1"));
                 assertEquals(Boolean.FALSE, Gallery.trashState(context.getContentResolver(), items.get(1), false));
                 assertEquals(Boolean.TRUE, Gallery.trashState(context.getContentResolver(), items.get(0), false));
 
-                find(By.text("Undo")).click();
+                find(By.desc(Pattern.compile("Undo Trash · [12]"))).click();
                 approveAndroid();
-                find(By.text("Restored"));
+                find(By.desc("Undo unavailable"));
                 assertEquals(Boolean.FALSE, Gallery.trashState(context.getContentResolver(), items.get(0), false));
-                assertFalse(device.hasObject(By.text("Undo")));
+                assertFalse(find(By.desc("Undo unavailable")).isEnabled());
+                assertFalse(device.hasObject(By.text("Restored")));
             }
         } finally { clean(a, b, c); }
     }
@@ -134,10 +136,11 @@ public class LiteJourneyTest {
             var item = Gallery.load(context, Gallery.access(context)).get(0);
             try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
                 swipeLeft();
-                find(By.text("Moved to Trash"));
+                find(By.desc("Undo Trash · 1"));
+                assertFalse(device.hasObject(By.text("Moved to Trash")));
                 assertEquals(Boolean.TRUE, Gallery.trashState(context.getContentResolver(), item, false));
-                find(By.text("Undo")).click();
-                find(By.text("Restored"));
+                find(By.desc(Pattern.compile("Undo Trash · [12]"))).click();
+                find(By.desc("Undo unavailable"));
                 assertEquals(Boolean.FALSE, Gallery.trashState(context.getContentResolver(), item, false));
             }
         } finally {
@@ -166,6 +169,40 @@ public class LiteJourneyTest {
                 assertEquals(java.util.Set.of(regular.get(1).uri()), stars);
             }
         } finally { clean(a, b); }
+    }
+
+    @Test public void firstLaunchOffersMediaManagementAndReturnsToGalleryAfterGrant() throws Exception {
+        grantMedia();
+        context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().remove("accessSetupV2").commit();
+        String command = "cmd appops set " + context.getPackageName() + " MANAGE_MEDIA ";
+        var photo = fixture("Lite setup.png", false);
+        try {
+            device.executeShellCommand(command + "default");
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                find(By.text("Enable media management")).click();
+                assertTrue(device.wait(Until.hasObject(By.pkg("com.android.settings").depth(0)), 7000));
+                device.executeShellCommand(command + "allow");
+                device.pressBack();
+                find(By.desc("Gallery photo"));
+                assertTrue(context.getSharedPreferences("lite", Context.MODE_PRIVATE).getBoolean("accessSetupV2", false));
+                assertFalse(find(By.desc("Undo unavailable")).isEnabled());
+            }
+        } finally { device.executeShellCommand(command + "default"); clean(photo); }
+    }
+
+    @Test public void declinedMediaManagementCanContinueAndDoesNotRepeatSetup() throws Exception {
+        grantMedia();
+        context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().remove("accessSetupV2").commit();
+        var photo = fixture("Lite declined.png", false);
+        try {
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                find(By.text("Continue with confirmations")).click();
+                find(By.desc("Gallery photo"));
+                scenario.recreate();
+                find(By.desc("Gallery photo"));
+                assertFalse(device.hasObject(By.text("Enable media management")));
+            }
+        } finally { clean(photo); }
     }
 
     @Test public void starsPersistAndVideoPlays() throws Exception {
