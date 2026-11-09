@@ -19,7 +19,6 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject2;
 import androidx.test.uiautomator.Until;
 import java.io.IOException;
-import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,7 +46,10 @@ public class LiteJourneyTest {
         try (var output = java.util.Objects.requireNonNull(resolver.openOutputStream(uri))) {
             if (video) {
                 try (var stream = instrumentation.getContext().getAssets().open("sample-video.b64")) {
-                    output.write(android.util.Base64.decode(stream.readAllBytes(), android.util.Base64.DEFAULT));
+                    try (var decoded = new android.util.Base64InputStream(stream, android.util.Base64.DEFAULT)) {
+                        byte[] buffer = new byte[4096];
+                        for (int size; (size = decoded.read(buffer)) != -1;) output.write(buffer, 0, size);
+                    }
                 }
             } else {
                 var bitmap = Bitmap.createBitmap(700, 900, Bitmap.Config.ARGB_8888);

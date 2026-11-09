@@ -7,7 +7,7 @@ android {
         minSdk 30
         targetSdk 36
         versionName rootProject.file('VERSION').text.trim()
-        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+        versionCode = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     buildFeatures { buildConfig true }

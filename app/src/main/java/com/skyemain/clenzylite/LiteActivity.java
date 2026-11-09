@@ -18,7 +18,6 @@ import android.view.GestureDetector;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -142,7 +141,7 @@ public final class LiteActivity extends ComponentActivity {
             var header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
             var count = label((review.isStarredQueue() ? "Starred · " : "") +
-                (review.position() + 1) + " / " + review.size(), 13, overlayInk());
+                (review.position() + 1) + " / " + review.size(), 13, Color.WHITE);
             count.setPadding(dp(11), dp(8), dp(11), dp(8));
             count.setBackground(surface(0xdb17141e, 20));
             header.addView(count);
@@ -492,7 +491,6 @@ public final class LiteActivity extends ComponentActivity {
     private int ink() { return light ? 0xff211c2d : 0xfff7f4fb; }
     private int muted() { return light ? 0xff625d6e : 0xffaca7ba; }
     private int panel() { return light ? 0xffffffff : 0xff202029; }
-    private int overlayInk() { return Color.WHITE; }
 
     private LinearLayout column() {
         var layout = new LinearLayout(this);
