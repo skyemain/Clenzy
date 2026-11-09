@@ -4,6 +4,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Comparator;
 import java.util.Set;
 
 final class ReviewSession {
@@ -14,6 +17,8 @@ final class ReviewSession {
     private final ArrayDeque<Removed> undo = new ArrayDeque<>(2);
     private final ArrayList<Item> library = new ArrayList<>();
     private final ArrayList<Item> queue = new ArrayList<>();
+    private final Map<String, Long> history = new HashMap<>();
+    private long latestRank;
     private int index;
     private boolean starredQueue;
 
@@ -25,9 +30,14 @@ final class ReviewSession {
     int position() { return index; }
     Item current() { return index < queue.size() ? queue.get(index) : null; }
 
-    void load(List<Item> items) {
+    void load(List<Item> items) { load(items, Map.of()); }
+
+    void load(List<Item> items, Map<String, Long> ranks) {
         library.clear();
         library.addAll(items);
+        history.clear();
+        history.putAll(ranks);
+        latestRank = ranks.values().stream().mapToLong(Long::longValue).max().orElse(0);
         switchQueue(starredQueue);
     }
 
@@ -35,6 +45,8 @@ final class ReviewSession {
         starredQueue = starred;
         queue.clear();
         for (Item item : library) if (isStarred(item) == starred) queue.add(item);
+        // The library's recent-first order breaks ties between unreviewed items.
+        queue.sort(Comparator.comparingLong(item -> history.getOrDefault(item.uri(), 0L)));
         index = 0;
     }
 
@@ -45,6 +57,7 @@ final class ReviewSession {
     void next() {
         Item item = current();
         if (item == null) return;
+        history.put(item.uri(), ++latestRank);
         if (isStarred(item) != starredQueue) queue.remove(index);
         else index++;
     }

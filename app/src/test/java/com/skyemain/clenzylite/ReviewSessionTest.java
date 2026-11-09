@@ -33,6 +33,18 @@ public class ReviewSessionTest {
         assertEquals(2, session.size());
     }
 
+    @Test public void reopeningStartsWithUnreviewedAndOrdersReviewedOldestFirst() {
+        var session = new ReviewSession(Set.of());
+        session.load(List.of(a, b, c), java.util.Map.of(a.uri(), 2L, b.uri(), 1L));
+        assertEquals(c, session.current());
+        session.next();
+        assertEquals(b, session.current());
+        session.next();
+        assertEquals(a, session.current());
+        session.switchQueue(false);
+        assertEquals(a, session.current());
+    }
+
     @Test public void starredItemsStayOutOfRegularQueueOnReopen() {
         var session = new ReviewSession(Set.of());
         session.load(List.of(a, b));

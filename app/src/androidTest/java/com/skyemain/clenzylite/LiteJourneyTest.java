@@ -124,6 +124,50 @@ public class LiteJourneyTest {
         } finally { clean(a, b, c); }
     }
 
+    @Test public void mediaManagementGrantAllowsSwipeAndUndoWithoutDialog() throws Exception {
+        grantMedia();
+        var photo = fixture("Lite prompt-free.png", false);
+        String command = "cmd appops set " + context.getPackageName() + " MANAGE_MEDIA ";
+        try {
+            device.executeShellCommand(command + "allow");
+            assertTrue("Media management grant", MediaStore.canManageMedia(context));
+            var item = Gallery.load(context, Gallery.access(context)).get(0);
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                swipeLeft();
+                find(By.text("Moved to Trash"));
+                assertEquals(Boolean.TRUE, Gallery.trashState(context.getContentResolver(), item, false));
+                find(By.text("Undo")).click();
+                find(By.text("Restored"));
+                assertEquals(Boolean.FALSE, Gallery.trashState(context.getContentResolver(), item, false));
+            }
+        } finally {
+            device.executeShellCommand(command + "default");
+            clean(photo);
+        }
+    }
+
+    @Test public void reopeningResumesAtTheNextUnreviewedPhoto() throws Exception {
+        grantMedia();
+        var a = fixture("Lite resume A.png", false);
+        var b = fixture("Lite resume B.png", false);
+        try {
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                var area = find(By.desc("Gallery photo")).getVisibleBounds();
+                assertTrue(device.swipe(area.left + area.width() / 4, area.centerY(),
+                    area.left + area.width() * 3 / 4, area.centerY(), 16));
+                find(By.text("2 / 2"));
+            }
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                find(By.desc("Star current item")).click();
+                find(By.desc("Unstar current item"));
+                var regular = Gallery.load(context, Gallery.access(context));
+                var stars = context.getSharedPreferences("lite", Context.MODE_PRIVATE)
+                    .getStringSet("stars", java.util.Set.of());
+                assertEquals(java.util.Set.of(regular.get(1).uri()), stars);
+            }
+        } finally { clean(a, b); }
+    }
+
     @Test public void starsPersistAndVideoPlays() throws Exception {
         grantMedia();
         var photo = fixture("Lite star.png", false);

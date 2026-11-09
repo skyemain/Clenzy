@@ -3,6 +3,10 @@ package com.skyemain.clenzylite;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.SharedPreferences;
+import android.content.Intent;
+import android.os.Build;
+import android.provider.Settings;
+import java.util.HashSet;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -38,6 +42,7 @@ import java.util.concurrent.Executors;
 public final class LiteActivity extends ComponentActivity {
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
     private SharedPreferences prefs;
+    private ReviewHistory history;
     private ReviewSession review;
     private FrameLayout root;
     private VideoView player;
@@ -58,6 +63,7 @@ public final class LiteActivity extends ComponentActivity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         prefs = getSharedPreferences("lite", MODE_PRIVATE);
+        history = new ReviewHistory(getApplicationContext());
         review = new ReviewSession(prefs.getStringSet("stars", Set.of()));
         light = prefs.getBoolean("light", false);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -79,7 +85,8 @@ public final class LiteActivity extends ComponentActivity {
         ++previewVersion;
         stopVideo();
         if (sheet != null) sheet.dismiss();
-        worker.shutdownNow();
+        worker.execute(history::close);
+        worker.shutdown();
         super.onDestroy();
     }
 
@@ -98,9 +105,10 @@ public final class LiteActivity extends ComponentActivity {
         worker.execute(() -> {
             try {
                 var items = Gallery.load(this, level);
+                var reviewed = history.ranks();
                 runOnUiThread(() -> {
                     if (generation != loadVersion || isDestroyed()) return;
-                    review.load(items);
+                    review.load(items, reviewed);
                     show(null, false);
                 });
             } catch (RuntimeException error) {
@@ -127,7 +135,7 @@ public final class LiteActivity extends ComponentActivity {
         } else {
             final int version = previewVersion;
             var photo = new ImageView(this);
-            photo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            photo.setScaleType(ImageView.ScaleType.CENTER_CROP);
             photo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             root.addView(photo, new FrameLayout.LayoutParams(-1, -1));
             var gestureArea = new View(this);
@@ -166,13 +174,38 @@ public final class LiteActivity extends ComponentActivity {
                 final Bitmap result = bitmap;
                 runOnUiThread(() -> {
                     if (version != previewVersion || isDestroyed()) { if (result != null) result.recycle(); return; }
-                    if (result != null) photo.setImageBitmap(result);
+                    if (result != null) {
+                        photo.setImageBitmap(result);
+                        showSwipeTutorial(item);
+                    }
                     previewReady = result != null || item.video();
                     if (!previewReady) showBanner("Photo unavailable · swipe right to continue", false, false);
                 });
             });
         }
         if (notice != null) showBanner(notice, offerUndo, item != null && item.video());
+    }
+
+    private void showSwipeTutorial(ReviewSession.Item item) {
+        var shown = new HashSet<>(prefs.getStringSet("tutorialMedia", Set.of()));
+        if (shown.size() >= 3 || !shown.add(item.uri())) return;
+        prefs.edit().putStringSet("tutorialMedia", shown).apply();
+
+        var cue = new LinearLayout(this);
+        cue.setGravity(Gravity.CENTER);
+        cue.setPadding(dp(8), dp(5), dp(8), dp(5));
+        cue.setBackground(surface(0xe8221c31, 14));
+        cue.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        cue.addView(label("← Swipe to Trash", 13, 0xffffbbc7));
+        cue.addView(label("Swipe for next →", 13, 0xffd9ceff));
+        var host = root;
+        var params = new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER);
+        host.addView(cue, params);
+        cue.setTranslationX(-dp(14));
+        cue.setAlpha(0);
+        cue.animate().alpha(1).translationX(0).setDuration(260).withEndAction(() ->
+            cue.animate().alpha(0).translationX(dp(14)).setStartDelay(1650).setDuration(260)
+                .withEndAction(() -> host.removeView(cue)).start()).start();
     }
 
     private void setStar(Button star, ReviewSession.Item item) {
@@ -304,7 +337,14 @@ public final class LiteActivity extends ComponentActivity {
     }
 
     private void next() {
-        if (!busy && review.current() != null) { review.next(); show(null, false); }
+        var item = review.current();
+        if (busy || item == null) return;
+        review.next();
+        worker.execute(() -> {
+            try { history.mark(item.uri()); }
+            catch (RuntimeException error) { android.util.Log.w("ClenzyLite", "Could not save review progress", error); }
+        });
+        show(null, false);
     }
 
     private void remove() {
@@ -379,7 +419,25 @@ public final class LiteActivity extends ComponentActivity {
         if (review.undoCount() > 0) row(menu, "Undo Trash · " + review.undoCount(), this::undo);
         row(menu, "Select queue · " + (review.isStarredQueue() ? "Starred" : "Regular"), this::queues);
         row(menu, "Settings", this::settings);
+        if (Build.VERSION.SDK_INT >= 31 && !MediaStore.canManageMedia(this)) {
+            row(menu, "Swipe without prompts", this::manageMedia);
+        }
         row(menu, "About Clenzy Lite", this::about);
+    }
+
+    private void manageMedia() {
+        if (Build.VERSION.SDK_INT < 31) return;
+        var menu = sheet("Swipe without prompts");
+        menu.addView(label("Allow Clenzy Lite under Android’s Media management apps. With full gallery access, this can skip Android’s prompts when moving items to Trash or restoring them.", 15, muted()));
+        row(menu, "Open Android settings", () -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_REQUEST_MANAGE_MEDIA, Uri.parse("package:" + getPackageName())));
+            } catch (android.content.ActivityNotFoundException error) {
+                showBanner("Media management settings are unavailable on this device", false,
+                    review.current() != null && review.current().video());
+            }
+        });
+        row(menu, "Back", this::options);
     }
 
     private void queues() {
