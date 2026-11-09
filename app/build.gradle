@@ -1,18 +1,17 @@
-plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
+plugins { id 'com.android.application' }
 android {
-    namespace 'com.skyemain.clenzy'
+    namespace 'com.skyemain.clenzylite'
     compileSdk 36
-    buildFeatures { buildConfig true }
     defaultConfig {
-        applicationId 'com.skyemain.clenzy'
-        minSdk 26
+        applicationId 'com.skyemain.clenzylite'
+        minSdk 30
         targetSdk 36
-        versionCode = ((System.getenv("GITHUB_RUN_NUMBER") ?: "2").toInteger() + 100)
         versionName rootProject.file('VERSION').text.trim()
+        versionCode (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
-    kotlinOptions { jvmTarget = '17' }
-    compileOptions { coreLibraryDesugaringEnabled true; sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     signingConfigs {
         release {
             if (System.getenv('CLENZY_KEYSTORE')) {
@@ -23,27 +22,14 @@ android {
             }
         }
     }
-    buildTypes { release { minifyEnabled false; if (System.getenv('CLENZY_KEYSTORE')) signingConfig signingConfigs.release } }
-
+    buildTypes {
+        release {
+            if (System.getenv('CLENZY_KEYSTORE')) signingConfig signingConfigs.release
+        }
+    }
 }
 dependencies {
-    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.27.0'
-    implementation 'androidx.media3:media3-transformer:1.8.0'
-    implementation 'androidx.media3:media3-effect:1.8.0'
-    implementation 'androidx.exifinterface:exifinterface:1.3.7'
-    implementation 'com.google.mlkit:text-recognition-devanagari:16.0.1'
-    implementation 'androidx.work:work-runtime-ktx:2.9.1'
-    implementation 'com.google.mlkit:text-recognition:16.0.1'
-    implementation 'com.google.mlkit:image-labeling:17.0.9'
-    implementation 'com.google.mlkit:barcode-scanning:17.3.0'
-    implementation 'com.google.mlkit:face-detection:16.1.7'
-    implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.activity:activity:1.9.3'
-    implementation 'androidx.lifecycle:lifecycle-viewmodel:2.8.7'
-    implementation 'androidx.lifecycle:lifecycle-livedata:2.8.7'
-    implementation 'androidx.recyclerview:recyclerview:1.3.2'
-
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test:runner:1.6.2'
