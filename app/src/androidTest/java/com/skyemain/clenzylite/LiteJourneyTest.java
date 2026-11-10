@@ -230,6 +230,28 @@ public class LiteJourneyTest {
         } finally { if (added != null) clean(added); clean(a, b); }
     }
 
+    @Test public void firstTrashOpensExactMediaSettingsAndKeepsPhotoUntouched() throws Exception {
+        grantMedia();
+        context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().putBoolean("confirmationMode", false).commit();
+        String command = "cmd appops set " + context.getPackageName() + " MANAGE_MEDIA ";
+        var photo = fixture("Lite first Trash access.png", false);
+        try {
+            device.executeShellCommand(command + "default");
+            var item = Gallery.load(context, Gallery.access(context)).get(0);
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                swipeLeft();
+                assertTrue(device.wait(Until.hasObject(By.pkg("com.android.settings").depth(0)), 7000));
+                assertEquals(Boolean.FALSE, Gallery.trashState(context.getContentResolver(), item, false));
+                device.executeShellCommand(command + "allow");
+                device.pressBack();
+                find(By.desc("Gallery photo"));
+                swipeLeft();
+                find(By.desc("Undo Trash · 1"));
+                assertEquals(Boolean.TRUE, Gallery.trashState(context.getContentResolver(), item, false));
+            }
+        } finally { device.executeShellCommand(command + "default"); clean(photo); }
+    }
+
     @Test public void starsPersistAndVideoPlays() throws Exception {
         grantMedia();
         var photo = fixture("Lite star.png", false);

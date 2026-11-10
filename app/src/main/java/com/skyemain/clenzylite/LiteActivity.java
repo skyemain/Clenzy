@@ -426,7 +426,7 @@ public final class LiteActivity extends ComponentActivity {
         if (busy || !previewReady || item == null) return;
         if (Build.VERSION.SDK_INT >= 31 && !MediaStore.canManageMedia(this)
                 && !prefs.getBoolean("confirmationMode", false)) {
-            manageMedia();
+            openMediaSettings();
             return;
         }
         request(item, null);
