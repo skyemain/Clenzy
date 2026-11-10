@@ -252,6 +252,35 @@ public class LiteJourneyTest {
         } finally { device.executeShellCommand(command + "default"); clean(photo); }
     }
 
+    @Test public void photoFitsInsideViewportWithoutCropping() throws Exception {
+        grantMedia();
+        var photo = fixture("Lite uncropped.png", false);
+        try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+            find(By.desc("Gallery photo"));
+            var checked = new java.util.concurrent.atomic.AtomicBoolean(false);
+            long deadline = android.os.SystemClock.uptimeMillis() + 7000;
+            while (!checked.get() && android.os.SystemClock.uptimeMillis() < deadline) {
+                scenario.onActivity(activity -> {
+                    var content = (android.view.ViewGroup) activity.findViewById(android.R.id.content);
+                    var root = (android.view.ViewGroup) content.getChildAt(0);
+                    for (int i = 0; i < root.getChildCount(); i++) {
+                        if (root.getChildAt(i) instanceof android.widget.ImageView image && image.getDrawable() != null) {
+                            var drawable = image.getDrawable();
+                            var rect = new android.graphics.RectF(0, 0, drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight());
+                            image.getImageMatrix().mapRect(rect);
+                            assertTrue(rect.left >= -1 && rect.top >= -1);
+                            assertTrue(rect.right <= image.getWidth() + 1 && rect.bottom <= image.getHeight() + 1);
+                            assertEquals(700f / 900f, rect.width() / rect.height(), 0.01f);
+                            checked.set(true);
+                        }
+                    }
+                });
+                if (!checked.get()) android.os.SystemClock.sleep(100);
+            }
+            assertTrue("Photo decoded and fit without cropping", checked.get());
+        } finally { clean(photo); }
+    }
+
     @Test public void starsPersistAndVideoPlays() throws Exception {
         grantMedia();
         var photo = fixture("Lite star.png", false);
@@ -272,18 +301,21 @@ public class LiteJourneyTest {
                 find(By.text("Starred photos and videos")).click();
                 find(By.text("Starred · 1 / 1"));
                 find(By.desc("Unstar current item"));
-                if (!device.hasObject(By.text("Play"))) {
+                if (!device.hasObject(By.desc("Play video"))) {
                     find(By.desc("Gallery photo")).longClick();
                     find(By.text("Select queue · Starred")).click();
                     find(By.text("Regular photos and videos")).click();
                 }
-                find(By.text("Play")).click();
-                var playback = device.wait(Until.findObject(By.text(Pattern.compile("Pause|Replay"))), 9000);
-                if (playback == null) {
-                    var hierarchy = new java.io.ByteArrayOutputStream();
-                    device.dumpWindowHierarchy(hierarchy);
-                    fail("Video playback did not start: " + hierarchy.toString("UTF-8"));
-                }
+                var play = find(By.desc("Play video"));
+                assertFalse(device.hasObject(By.desc("Video position")));
+                var videoArea = find(By.desc("Gallery video")).getVisibleBounds();
+                var playArea = play.getVisibleBounds();
+                assertTrue(Math.abs(videoArea.centerX() - playArea.centerX()) < 4);
+                assertTrue(Math.abs(videoArea.centerY() - playArea.centerY()) < 4);
+                play.click();
+                assertTrue(find(By.desc("Video position")).isEnabled());
+                assertFalse(device.hasObject(By.text("Play")));
+
             }
         } finally { clean(photo, video); }
     }

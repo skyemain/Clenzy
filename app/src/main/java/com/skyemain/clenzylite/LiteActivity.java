@@ -190,7 +190,7 @@ public final class LiteActivity extends ComponentActivity {
         } else {
             final int version = previewVersion;
             var photo = new ImageView(this);
-            photo.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            photo.setScaleType(ImageView.ScaleType.FIT_CENTER);
             photo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             root.addView(photo, new FrameLayout.LayoutParams(-1, -1));
             var gestureArea = new View(this);
@@ -200,6 +200,10 @@ public final class LiteActivity extends ComponentActivity {
             gestures(gestureArea, photo, item);
             ViewCompat.addAccessibilityAction(gestureArea, "Next item", (view, args) -> { next(); return true; });
             ViewCompat.addAccessibilityAction(gestureArea, "Move to Trash", (view, args) -> { remove(); return true; });
+            if (item.video()) ViewCompat.addAccessibilityAction(gestureArea, "Play or pause video", (view, args) -> {
+                if (playbackButton != null) playbackButton.performClick();
+                return true;
+            });
             ViewCompat.addAccessibilityAction(gestureArea, "Options", (view, args) -> { options(); return true; });
 
             var header = new LinearLayout(this);
@@ -284,26 +288,34 @@ public final class LiteActivity extends ComponentActivity {
         controls.setGravity(Gravity.CENTER_VERTICAL);
         controls.setPadding(dp(5), dp(4), dp(8), dp(4));
         controls.setBackground(surface(0xea17141e, 15));
-        var play = overlayButton("Play", () -> {});
+        var play = overlayButton("▶", () -> {});
+        play.setTextSize(26);
+        play.setContentDescription("Play video");
+        play.setBackground(new RippleDrawable(ColorStateList.valueOf(0x447e64b5), surface(0xd922202b, 32), null));
         playbackButton = play;
-        controls.addView(play);
+        root.addView(play, new FrameLayout.LayoutParams(dp(64), dp(64), Gravity.CENTER));
         var seek = new SeekBar(this);
         seek.setContentDescription("Video position");
         seek.setEnabled(false);
         seek.setProgressTintList(ColorStateList.valueOf(0xffc4b8ff));
         controls.addView(seek, new LinearLayout.LayoutParams(0, dp(44), 1f));
+        controls.setVisibility(View.GONE);
         root.addView(controls, overlayParams(Gravity.BOTTOM, 10));
         play.setOnClickListener(view -> {
             if (busy || !item.equals(review.current())) return;
             if (player != null) {
-                if (player.isPlaying()) { player.pause(); play.setText("Play"); }
-                else { player.start(); play.setText("Pause"); }
+                if (player.isPlaying()) {
+                    player.pause(); play.setVisibility(View.VISIBLE); play.setContentDescription("Resume video");
+                } else {
+                    player.start(); play.setVisibility(View.GONE); controls.setVisibility(View.VISIBLE);
+                }
                 return;
             }
             VideoView video = new VideoView(this);
             player = video;
             root.addView(video, 0, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
-            play.setText("Loading…");
+            play.setText("…");
+            play.setContentDescription("Loading video");
             play.setEnabled(false);
             video.setOnPreparedListener(mp -> {
                 if (video != player) return;
@@ -312,17 +324,28 @@ public final class LiteActivity extends ComponentActivity {
                 seek.setEnabled(true);
                 video.start();
                 play.setEnabled(true);
-                play.setText("Pause");
+                play.setText("▶");
+                play.setContentDescription("Pause video");
+                play.setVisibility(View.GONE);
+                controls.setVisibility(View.VISIBLE);
                 tickVideo(video, seek);
             });
-            video.setOnCompletionListener(mp -> play.setText("Replay"));
+            video.setOnCompletionListener(mp -> {
+                if (video != player) return;
+                play.setText("▶");
+                play.setContentDescription("Replay video");
+                play.setVisibility(View.VISIBLE);
+            });
             video.setOnErrorListener((mp, what, extra) -> {
                 android.util.Log.w("ClenzyLite", "Platform video player error: " + what + "/" + extra);
                 if (video == player) {
                     stopVideo();
                     root.removeView(video);
                     poster.setVisibility(View.VISIBLE);
-                    play.setText("Play");
+                    play.setText("▶");
+                    play.setContentDescription("Play video");
+                    play.setVisibility(View.VISIBLE);
+                    controls.setVisibility(View.GONE);
                     play.setEnabled(true);
                     seek.setEnabled(false);
                     showBanner("This video could not be played", false, true);
@@ -349,7 +372,11 @@ public final class LiteActivity extends ComponentActivity {
     private void pauseVideo() {
         if (player != null && player.isPlaying()) {
             player.pause();
-            if (playbackButton != null) playbackButton.setText("Play");
+            if (playbackButton != null) {
+                playbackButton.setText("▶");
+                playbackButton.setContentDescription("Resume video");
+                playbackButton.setVisibility(View.VISIBLE);
+            }
         }
     }
 
@@ -364,6 +391,13 @@ public final class LiteActivity extends ComponentActivity {
         var detector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
             @Override public boolean onDown(MotionEvent event) { return true; }
             @Override public void onLongPress(MotionEvent event) { if (!busy) options(); }
+            @Override public boolean onSingleTapConfirmed(MotionEvent event) {
+                if (!busy && item != null && item.video() && player != null && playbackButton != null) {
+                    playbackButton.performClick();
+                    return true;
+                }
+                return false;
+            }
         });
         target.setOnTouchListener(new View.OnTouchListener() {
             float x, y;
@@ -597,6 +631,7 @@ public final class LiteActivity extends ComponentActivity {
         previewVersion++;
         previewReady = false;
         stopVideo();
+        playbackButton = null;
         root = new FrameLayout(this);
         root.setBackgroundColor(light ? 0xfff2eff6 : 0xff101014);
         setContentView(root);
