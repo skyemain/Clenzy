@@ -114,6 +114,7 @@ public final class LiteActivity extends ComponentActivity {
                 runOnUiThread(() -> {
                     if (generation != loadVersion || isDestroyed()) return;
                     review.load(items, reviewed);
+                    review.resume(prefs.getString("resumeUri", ""), prefs.getBoolean("resumeStarred", false));
                     show(null, false);
                 });
             } catch (RuntimeException error) {
@@ -159,7 +160,8 @@ public final class LiteActivity extends ComponentActivity {
     }
 
     private void finishSetup() {
-        prefs.edit().putBoolean("accessSetupV2", true).apply();
+        prefs.edit().putBoolean("accessSetupV2", true)
+            .putBoolean("confirmationMode", Build.VERSION.SDK_INT < 31 || !MediaStore.canManageMedia(this)).apply();
         load();
     }
 
@@ -174,6 +176,10 @@ public final class LiteActivity extends ComponentActivity {
     private void show(String notice, boolean offerUndo) {
         resetScreen();
         var item = review.current();
+        String checkpoint = item == null ? "" : item.uri();
+        if (!checkpoint.equals(prefs.getString("resumeUri", "")) || review.isStarredQueue() != prefs.getBoolean("resumeStarred", false)) {
+            prefs.edit().putString("resumeUri", checkpoint).putBoolean("resumeStarred", review.isStarredQueue()).commit();
+        }
         if (item == null) {
             String heading = review.size() > 0 ? "You’re caught up" :
                 review.isStarredQueue() ? "No starred media" : "No media to review";
@@ -395,17 +401,35 @@ public final class LiteActivity extends ComponentActivity {
     private void next() {
         var item = review.current();
         if (busy || item == null) return;
-        review.next();
+        busy = true;
         worker.execute(() -> {
-            try { history.mark(item.uri()); }
-            catch (RuntimeException error) { android.util.Log.w("ClenzyLite", "Could not save review progress", error); }
+            try {
+                history.mark(item.uri());
+                runOnUiThread(() -> {
+                    if (isDestroyed()) return;
+                    busy = false;
+                    review.next();
+                    show(null, false);
+                });
+            } catch (RuntimeException error) {
+                runOnUiThread(() -> {
+                    if (isDestroyed()) return;
+                    busy = false;
+                    show("Could not save your place. Please try again.", false);
+                });
+            }
         });
-        show(null, false);
     }
 
     private void remove() {
         var item = review.current();
-        if (!busy && previewReady && item != null) request(item, null);
+        if (busy || !previewReady || item == null) return;
+        if (Build.VERSION.SDK_INT >= 31 && !MediaStore.canManageMedia(this)
+                && !prefs.getBoolean("confirmationMode", false)) {
+            manageMedia();
+            return;
+        }
+        request(item, null);
     }
 
     private void undo() {
@@ -477,17 +501,22 @@ public final class LiteActivity extends ComponentActivity {
         if (review.undoCount() > 0) row(menu, "Undo Trash · " + review.undoCount(), this::undo);
         row(menu, "Select queue · " + (review.isStarredQueue() ? "Starred" : "Regular"), this::queues);
         row(menu, "Settings", this::settings);
-        if (Build.VERSION.SDK_INT >= 31 && !MediaStore.canManageMedia(this)) {
-            row(menu, "Swipe without prompts", this::manageMedia);
-        }
+        if (Build.VERSION.SDK_INT >= 31) row(menu, "Swipe access", this::manageMedia);
         row(menu, "About Clenzy Lite", this::about);
     }
 
     private void manageMedia() {
         if (Build.VERSION.SDK_INT < 31) return;
-        var menu = sheet("Swipe without prompts");
-        menu.addView(label("Allow Clenzy Lite under Android’s Media management apps. With full gallery access, this can skip Android’s prompts when moving items to Trash or restoring them.", 15, muted()));
-        row(menu, "Open Android settings", this::openMediaSettings);
+        boolean managed = MediaStore.canManageMedia(this);
+        int mediaAccess = Gallery.access(this);
+        var menu = sheet("Swipe access");
+        menu.addView(label("Media management: " + (managed ? "Enabled" : "Not enabled"), 16, ink()));
+        menu.addView(label("Gallery: " + ((mediaAccess & 3) == 3 ? "All photos and videos" : "Limited access"), 16, ink()));
+        menu.addView(label(managed ? "If Android still asks before Trash, check that all photos and videos are allowed. Device-specific confirmation rules may still apply." :
+            "Android will ask for every Trash action until Media management is enabled for Clenzy Lite.", 14, muted()));
+        row(menu, "Open media management", this::openMediaSettings);
+        if ((mediaAccess & 3) != 3) row(menu, "Allow all photos and videos", () -> permission.launch(Gallery.permissions()));
+        if (!managed) row(menu, "Continue with confirmations", () -> prefs.edit().putBoolean("confirmationMode", true).apply());
         row(menu, "Back", this::options);
     }
 

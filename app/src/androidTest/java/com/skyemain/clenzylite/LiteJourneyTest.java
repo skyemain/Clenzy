@@ -30,7 +30,7 @@ public class LiteJourneyTest {
     private final UiDevice device = UiDevice.getInstance(instrumentation);
 
     private void grantMedia() {
-        context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().putBoolean("accessSetupV2", true).commit();
+        context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().putBoolean("accessSetupV2", true).putBoolean("confirmationMode", true).commit();
         instrumentation.getUiAutomation().grantRuntimePermission(context.getPackageName(), Manifest.permission.READ_MEDIA_IMAGES);
         instrumentation.getUiAutomation().grantRuntimePermission(context.getPackageName(), Manifest.permission.READ_MEDIA_VIDEO);
     }
@@ -203,6 +203,31 @@ public class LiteJourneyTest {
                 assertFalse(device.hasObject(By.text("Enable media management")));
             }
         } finally { clean(photo); }
+    }
+
+    @Test public void checkpointSurvivesReopeningAndNewMedia() throws Exception {
+        grantMedia();
+        var a = fixture("Lite checkpoint A.png", false);
+        var b = fixture("Lite checkpoint B.png", false);
+        Uri added = null;
+        try {
+            String checkpoint;
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                var area = find(By.desc("Gallery photo")).getVisibleBounds();
+                assertTrue(device.swipe(area.left + area.width() / 4, area.centerY(),
+                    area.left + area.width() * 3 / 4, area.centerY(), 16));
+                find(By.text("2 / 2"));
+                checkpoint = context.getSharedPreferences("lite", Context.MODE_PRIVATE).getString("resumeUri", "");
+                assertFalse(checkpoint.isEmpty());
+            }
+            added = fixture("Lite newly arrived.png", false);
+            try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+                find(By.desc("Star current item")).click();
+                find(By.desc("Unstar current item"));
+                assertEquals(java.util.Set.of(checkpoint), context.getSharedPreferences("lite", Context.MODE_PRIVATE)
+                    .getStringSet("stars", java.util.Set.of()));
+            }
+        } finally { if (added != null) clean(added); clean(a, b); }
     }
 
     @Test public void starsPersistAndVideoPlays() throws Exception {

@@ -50,6 +50,16 @@ final class ReviewSession {
         index = 0;
     }
 
+    void resume(String uri, boolean starred) {
+        switchQueue(starred);
+        for (int i = 0; i < queue.size(); i++) {
+            if (queue.get(i).uri().equals(uri)) {
+                queue.add(0, queue.remove(i));
+                return;
+            }
+        }
+    }
+
     void star(Item item) {
         if (!stars.remove(item.uri())) stars.add(item.uri());
     }

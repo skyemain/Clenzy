@@ -45,6 +45,28 @@ public class ReviewSessionTest {
         assertEquals(a, session.current());
     }
 
+    @Test public void resumePinsCheckpointAheadOfNewPhotosWithoutLosingThem() {
+        var session = new ReviewSession(Set.of());
+        session.load(List.of(a, b, c), java.util.Map.of(c.uri(), 1L));
+        session.resume(b.uri(), false);
+        assertEquals(b, session.current());
+        session.next();
+        assertEquals(a, session.current());
+        session.next();
+        assertEquals(c, session.current());
+    }
+
+    @Test public void missingOrStarredCheckpointFallsBackToAccessibleQueue() {
+        var session = new ReviewSession(Set.of(b.uri()));
+        session.load(List.of(a, b, c));
+        session.resume(b.uri(), false);
+        assertEquals(a, session.current());
+        session.resume("deleted", false);
+        assertEquals(a, session.current());
+        session.resume(b.uri(), true);
+        assertEquals(b, session.current());
+    }
+
     @Test public void starredItemsStayOutOfRegularQueueOnReopen() {
         var session = new ReviewSession(Set.of());
         session.load(List.of(a, b));
