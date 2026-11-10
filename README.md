@@ -13,3 +13,5 @@ Requires Android 11 or later for system Trash. Compile with SDK 36, JDK 17, and 
 Version 1.3 saves an explicit current-item checkpoint and queue choice, and commits review history before advancing. Reopening pins that item ahead of new arrivals; inaccessible or deleted checkpoints fall back to the normal queue. Long-press → Swipe access shows actual Media management and gallery permission states. Without Media management, Trash requires Android confirmation; the first left swipe opens the exact Android Media management page unless the user explicitly chose confirmation mode.
 
 Version 1.4 fits the whole photo and video thumbnail without cropping, preserving aspect ratio. Videos have a centered Play icon; their seek bar appears only once playback starts. Tap the video to pause/resume; the centered icon returns when paused or finished.
+
+Options contains Sort, Queue, Settings, and About. Settings contains Theme and Access check. Sort persists Oldest/Newest (media modification date) or Size (largest first); reviewed items stay behind unseen items, and reopening still restores the current item.

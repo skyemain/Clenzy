@@ -67,6 +67,25 @@ public class ReviewSessionTest {
         assertEquals(b, session.current());
     }
 
+    @Test public void sortOrdersUnseenItemsAndKeepsReviewedAtBack() {
+        var session = new ReviewSession(Set.of());
+        session.load(List.of(a, b, c));
+        session.setSort("oldest");
+        assertEquals(c, session.current());
+        session.setSort("newest");
+        assertEquals(a, session.current());
+        session.setSort("size");
+        assertEquals(b, session.current());
+        session.next();
+        session.setSort("size");
+        assertEquals(a, session.current());
+        session.next();
+        assertEquals(c, session.current());
+        session.resume(b.uri(), false);
+        assertEquals(b, session.current());
+        assertEquals("size", session.sort());
+    }
+
     @Test public void starredItemsStayOutOfRegularQueueOnReopen() {
         var session = new ReviewSession(Set.of());
         session.load(List.of(a, b));

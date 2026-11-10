@@ -21,6 +21,13 @@ final class ReviewSession {
     private long latestRank;
     private int index;
     private boolean starredQueue;
+    private String sort = "newest";
+
+    String sort() { return sort; }
+    void setSort(String value) {
+        sort = Set.of("oldest", "newest", "size").contains(value) ? value : "newest";
+        switchQueue(starredQueue);
+    }
 
     ReviewSession(Set<String> stars) { this.stars = new HashSet<>(stars); }
     Set<String> stars() { return new HashSet<>(stars); }
@@ -45,8 +52,13 @@ final class ReviewSession {
         starredQueue = starred;
         queue.clear();
         for (Item item : library) if (isStarred(item) == starred) queue.add(item);
-        // The library's recent-first order breaks ties between unreviewed items.
-        queue.sort(Comparator.comparingLong(item -> history.getOrDefault(item.uri(), 0L)));
+        Comparator<Item> order = switch (sort) {
+            case "oldest" -> Comparator.comparingLong(Item::modified);
+            case "size" -> Comparator.comparingLong(Item::size).reversed();
+            default -> Comparator.comparingLong(Item::modified).reversed();
+        };
+        queue.sort(Comparator.<Item>comparingLong(item -> history.getOrDefault(item.uri(), 0L))
+            .thenComparing(order).thenComparing(Item::uri));
         index = 0;
     }
 

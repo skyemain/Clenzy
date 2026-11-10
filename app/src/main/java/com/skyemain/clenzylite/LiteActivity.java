@@ -72,6 +72,7 @@ public final class LiteActivity extends ComponentActivity {
         prefs = getSharedPreferences("lite", MODE_PRIVATE);
         history = new ReviewHistory(getApplicationContext());
         review = new ReviewSession(prefs.getStringSet("stars", Set.of()));
+        review.setSort(prefs.getString("sort", "newest"));
         light = prefs.getBoolean("light", false);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         load();
@@ -533,30 +534,29 @@ public final class LiteActivity extends ComponentActivity {
     private void options() {
         if (busy) return;
         var menu = sheet("Options");
-        if (review.undoCount() > 0) row(menu, "Undo Trash · " + review.undoCount(), this::undo);
-        row(menu, "Select queue · " + (review.isStarredQueue() ? "Starred" : "Regular"), this::queues);
+        row(menu, "Sort", this::sortOptions);
+        row(menu, "Queue", this::queues);
         row(menu, "Settings", this::settings);
-        if (Build.VERSION.SDK_INT >= 31) row(menu, "Swipe access", this::manageMedia);
         row(menu, "About Clenzy Lite", this::about);
     }
 
     private void manageMedia() {
-        if (Build.VERSION.SDK_INT < 31) return;
-        boolean managed = MediaStore.canManageMedia(this);
+        boolean managed = Build.VERSION.SDK_INT >= 31 && MediaStore.canManageMedia(this);
         int mediaAccess = Gallery.access(this);
-        var menu = sheet("Swipe access");
+        var menu = sheet("Access check");
         menu.addView(label("Media management: " + (managed ? "Enabled" : "Not enabled"), 16, ink()));
         menu.addView(label("Gallery: " + ((mediaAccess & 3) == 3 ? "All photos and videos" : "Limited access"), 16, ink()));
         menu.addView(label(managed ? "If Android still asks before Trash, check that all photos and videos are allowed. Device-specific confirmation rules may still apply." :
             "Android will ask for every Trash action until Media management is enabled for Clenzy Lite.", 14, muted()));
-        row(menu, "Open media management", this::openMediaSettings);
+        if (Build.VERSION.SDK_INT >= 31) row(menu, "Open media management", this::openMediaSettings);
+        else menu.addView(label("Android 11 requires system confirmation for Trash and Restore.", 14, muted()));
         if ((mediaAccess & 3) != 3) row(menu, "Allow all photos and videos", () -> permission.launch(Gallery.permissions()));
         if (!managed) row(menu, "Continue with confirmations", () -> prefs.edit().putBoolean("confirmationMode", true).apply());
-        row(menu, "Back", this::options);
+        row(menu, "Back", this::settings);
     }
 
     private void queues() {
-        var menu = sheet("Select queue");
+        var menu = sheet("Queue");
         row(menu, "Regular photos and videos", () -> selectQueue(false));
         row(menu, "Starred photos and videos", () -> selectQueue(true));
         row(menu, "Back", this::options);
@@ -567,12 +567,33 @@ public final class LiteActivity extends ComponentActivity {
         show(null, false);
     }
 
+    private void sortOptions() {
+        var menu = sheet("Sort");
+        row(menu, "Oldest" + (review.sort().equals("oldest") ? "  ✓" : ""), () -> sort("oldest"));
+        row(menu, "Newest" + (review.sort().equals("newest") ? "  ✓" : ""), () -> sort("newest"));
+        row(menu, "Size" + (review.sort().equals("size") ? "  ✓" : ""), () -> sort("size"));
+        menu.addView(label("Size: largest first. Reviewed items stay at the back.", 13, muted()));
+        row(menu, "Back", this::options);
+    }
+
+    private void sort(String value) {
+        prefs.edit().putString("sort", value).commit();
+        review.setSort(value);
+        show(null, false);
+    }
+
     private void settings() {
         var menu = sheet("Settings");
-        menu.addView(label("Theme", 14, muted()));
+        row(menu, "Theme", this::themeOptions);
+        row(menu, "Access check", this::manageMedia);
+        row(menu, "Back", this::options);
+    }
+
+    private void themeOptions() {
+        var menu = sheet("Theme");
         row(menu, light ? "Dark" : "Dark  ✓", () -> theme(false));
         row(menu, light ? "Light  ✓" : "Light", () -> theme(true));
-        row(menu, "Back", this::options);
+        row(menu, "Back", this::settings);
     }
 
     private void theme(boolean value) {

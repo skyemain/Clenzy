@@ -29,6 +29,12 @@ public class LiteJourneyTest {
     private final android.app.Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     private final UiDevice device = UiDevice.getInstance(instrumentation);
 
+    @org.junit.Before public void wakeEmulator() throws Exception {
+        device.wakeUp();
+        device.executeShellCommand("wm dismiss-keyguard");
+        device.executeShellCommand("svc power stayon true");
+    }
+
     private void grantMedia() {
         context.getSharedPreferences("lite", Context.MODE_PRIVATE).edit().putBoolean("accessSetupV2", true).putBoolean("confirmationMode", true).commit();
         instrumentation.getUiAutomation().grantRuntimePermission(context.getPackageName(), Manifest.permission.READ_MEDIA_IMAGES);
@@ -73,7 +79,13 @@ public class LiteJourneyTest {
 
     private UiObject2 find(BySelector selector) {
         var result = device.wait(Until.findObject(selector), 7000);
-        assertNotNull("Missing " + selector, result);
+        if (result == null) {
+            try {
+                var hierarchy = new java.io.ByteArrayOutputStream();
+                device.dumpWindowHierarchy(hierarchy);
+                fail("Missing " + selector + " hierarchy: " + hierarchy.toString("UTF-8"));
+            } catch (IOException error) { fail("Missing " + selector); }
+        }
         return result;
     }
 
@@ -281,6 +293,26 @@ public class LiteJourneyTest {
         } finally { clean(photo); }
     }
 
+    @Test public void optionsSortAndNestedSettingsPersist() throws Exception {
+        grantMedia();
+        var photo = fixture("Lite menu.png", false);
+        try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+            find(By.desc("Gallery photo")).longClick();
+            find(By.text("Sort")).click();
+            find(By.text("Size")).click();
+            find(By.desc("Gallery photo")).longClick();
+            find(By.text("Settings")).click();
+            find(By.text("Theme"));
+            find(By.text("Access check")).click();
+            find(By.text(Pattern.compile("Media management: .*")));
+            device.pressBack();
+            scenario.recreate();
+            find(By.desc("Gallery photo")).longClick();
+            find(By.text("Sort")).click();
+            find(By.text("Size  ✓"));
+        } finally { clean(photo); }
+    }
+
     @Test public void starsPersistAndVideoPlays() throws Exception {
         grantMedia();
         var photo = fixture("Lite star.png", false);
@@ -297,13 +329,13 @@ public class LiteJourneyTest {
                 var stage = device.wait(Until.findObject(By.desc(Pattern.compile("Gallery (photo|video)"))), 5000);
                 assertNotNull(stage);
                 stage.longClick();
-                find(By.text("Select queue · Regular")).click();
+                find(By.text("Queue")).click();
                 find(By.text("Starred photos and videos")).click();
                 find(By.text("Starred · 1 / 1"));
                 find(By.desc("Unstar current item"));
                 if (!device.hasObject(By.desc("Play video"))) {
                     find(By.desc("Gallery photo")).longClick();
-                    find(By.text("Select queue · Starred")).click();
+                    find(By.text("Queue")).click();
                     find(By.text("Regular photos and videos")).click();
                 }
                 var play = find(By.desc("Play video"));
