@@ -293,6 +293,7 @@ public final class LiteActivity extends ComponentActivity {
         play.setContentDescription("Play video");
         play.setBackground(new RippleDrawable(ColorStateList.valueOf(0x447e64b5), surface(0xd922202b, 32), null));
         playbackButton = play;
+        play.setOnLongClickListener(view -> { if (!busy) options(); return true; });
         root.addView(play, new FrameLayout.LayoutParams(dp(64), dp(64), Gravity.CENTER));
         var seek = new SeekBar(this);
         seek.setContentDescription("Video position");
