@@ -1,29 +1,27 @@
-# Clenzy for iOS
+# Clenzy Lite for iOS
 
-Version 1.0, build 3. Native iPhone/iPad app for iOS 17+. Development candidate; not approved for production. This branch contains only iOS source, tests, project and CI. Main remains the catalog of separately approved production builds.
+Native SwiftUI + PhotoKit, iOS 17 and newer, iPhone and iPad. Version 1.0 (1). This branch contains only the iOS Lite app; Android Lite remains on `andriod-lite`.
 
-## What works
+## Use
 
-Clean Storage and Review Photos open the real PhotoKit scan/review flow. Screenshots, videos (including unmeasured videos) and exact duplicates are available. SHA-256 compares complete original/adjustment resources, never partial hashes. Duplicate groups show copies side by side and suggest the oldest item to keep. Nothing is preselected; selecting every copy generates a warning. Photos deletion is explicitly confirmed and also affects iCloud Photos and synced devices. Items remain in Recently Deleted, so selected source bytes do not guarantee immediate device-space recovery.
+Grant all or selected Photos access on launch. Photos fit without cropping; videos show a centered Play button and reveal a seek bar after playback starts. Swipe right to move on; swipe left to queue for Trash. The compact Undo control reverses the last two swipes. Star an item to exclude it from the regular queue. Long-press media for Sort (Newest/Oldest/Size), Queue (Regular/Starred), Settings (Theme/Access check), and About.
 
-Standard scans review up to 1,000 recent accessible assets and read up to 512 MiB, with a 128 MiB resource limit. Optional deep scans allow 10,000 assets / 4 GiB / 1 GiB per resource. Limits are conservative, with up to one Photos callback chunk of overrun. Oversized/unavailable resources remain unmeasured, never exact duplicates. Results disclose coverage. Active Photos resource requests are cancelled when the user cancels. Cloud originals are not downloaded automatically.
+Queue position, reviewed order, stars, theme, pending Trash and two undo actions persist locally before advancing. Unseen media comes before reviewed media. Size sorting measures locally available original resource bytes using public PhotoKit APIs; cloud-only sizes remain unknown and sort last. Measuring large libraries can take time. Photos/video preview can retrieve originals from the user's own iCloud library.
 
-Limited Photos access is honored, with a picker to share more photos. Library changes clear selection and require a rescan; modification dates and availability are rechecked before deletion. Image previews and local video playback are supported. A cloud placeholder directs the user to download originals in Photos when needed.
+## iOS deletion behavior
 
-The SwiftUI home uses NavigationStack, SF Symbols, material cards, gradients and a storage ring. DeviceManager enables battery monitoring and queries filesystem total/free bytes; HomeViewModel uses @Observable. Storage and battery readings refresh on foreground/battery events. Unknown readings stay unavailable. Filesystem capacity can differ from Settings accounting. There are no simulated cleanup results or battery-time predictions. The privacy manifest declares disk-space display reason 85F4.1.
-
-Clenzy does not clean other apps' private caches, force-quit apps or purge system RAM. It has no analytics, ads or network requests of its own.
+Left swipe queues an item without changing Photos. The Trash control submits queued items in a single batch to the mandatory iOS confirmation. Undo works before that batch is committed. After deletion use Photos → Recently Deleted to recover; Apple provides no public app-level recovery API for that album. Deletion syncs through iCloud Photos when enabled. No media is sent to Clenzy servers. Limited Photos access only exposes the selected items and does not erase remembered progress for other items.
 
 ## Build and install
 
-Open Clenzy.xcodeproj in full Xcode. Choose an iPhone simulator and Run. Regenerate the project after adding/removing Swift files with `python3 scripts/generate-xcodeproj.py`. CI runs XCTest, captures the native home screen and builds an unsigned iPhone/iPad archive.
+Open `ClenzyLite.xcodeproj` in full Xcode 15 or later, choose your signing Team, connect an iPhone, and run the ClenzyLite scheme. A free Personal Team can be used for personal device testing with Apple's provisioning limits. TestFlight/App Store distribution requires Apple Developer membership. CI builds unsigned device archives and simulator apps; neither is an installable signed IPA.
 
-For your own iPhone: sign in under Xcode Settings > Apple Accounts, connect/unlock/trust the device, enable Developer Mode under iPhone Settings > Privacy & Security when prompted and restart/confirm. In the Clenzy target's Signing & Capabilities choose automatic signing, your Personal Team and a unique bundle identifier. Select the connected phone and Run. Free Personal Team provisioning expires after seven days; rebuild/reinstall as needed. App Store/TestFlight distribution requires paid membership and signing. The CI archive is unsigned and is not a directly installable public IPA.
+Regenerate the project with `python3 scripts/generate-xcodeproj.py`. CI on macOS builds and tests the simulator, captures launch UI, and archives the device app. Run tests locally with:
 
-References: [Personal Team limits](https://developer.apple.com/help/account/basics/about-your-developer-account), [running on devices](https://developer.apple.com/documentation/xcode/running-your-app-on-simulated-or-physical-devices), [PhotoKit](https://developer.apple.com/documentation/photos/phphotolibrary).
+```
+xcodebuild -project ClenzyLite.xcodeproj -scheme ClenzyLite -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO test
+```
 
-## Validation and maintainer reference
+## Development notes
 
-[Build 3 validation](https://github.com/skyemain/VCleaner/actions/runs/40408029608) passed eight native tests and the unsigned device archive. Tests cover hardware bounds/unknown readings, real-clean navigation, cancellation/budget guards, duplicate groups/all-copy warnings and video filtering. The native home screenshot was visually reviewed. No user photos are deleted by tests. Actual Photos permission prompts, system deletion cancellation, iCloud, edits/Live Photos, accessibility sizes and large libraries still require physical-device testing before production approval.
-
-HomeView receives observable state; cards remain modular. LibraryModel owns authorization/selection/deletion and library changes; PhotoScanner owns bounded resource IO; ReviewRules owns pure grouping/filtering. Keep this as the only Markdown file and never commit signing credentials.
+`ReviewState.swift` owns pure queue rules and atomic JSON persistence. `LibraryModel.swift` bridges authorization, library changes, batch deletion and sizes. `MediaViewer.swift` handles PhotoKit previews/AVPlayer lifecycle; views use aspect fit. `GalleryView.swift` and `OptionsView.swift` implement the minimal interface. Tests cover sorting, persistence, stars, two-step Undo and external deletion reconciliation. Physical iPhone/iCloud and limited-library permission behavior still require device validation. No third-party packages or AI models are included.
