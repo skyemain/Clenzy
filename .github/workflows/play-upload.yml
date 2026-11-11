@@ -54,7 +54,7 @@ jobs:
           unzip -q "$aab" 'base/lib/*/*.so' -d "$RUNNER_TEMP/native"
           while IFS= read -r -d '' lib; do
             readelf -lW "$lib" | awk '$1 == "LOAD" { if (($NF + 0) < 16384) exit 1; found=1 } END { if (!found) exit 1 }' || { echo "Unaligned library: $lib"; exit 1; }
-          done < <(find "$RUNNER_TEMP/native" -name '*.so' -print0)
+          done < <(find "$RUNNER_TEMP/native/base/lib/arm64-v8a" "$RUNNER_TEMP/native/base/lib/x86_64" -name '*.so' -print0)
           (cd upload && sha256sum *.aab > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
