@@ -18,6 +18,7 @@ struct OptionsView: View {
                         Text("Clenzy Lite").font(.title.bold())
                         Text("Version 1.0 · Build 1").foregroundStyle(.secondary)
                         Text("A quieter way to review your photos and videos. All review decisions stay on this device.").multilineTextAlignment(.center)
+                        Link("Privacy Policy", destination: URL(string: "https://github.com/skyemain/VCleaner/blob/ios-lite/docs/privacy.md")!)
                     }.padding(28).navigationTitle("About")
                 } label: { Label("About Clenzy Lite", systemImage: "info.circle") }
             }.navigationTitle("Options").navigationBarTitleDisplayMode(.inline)
