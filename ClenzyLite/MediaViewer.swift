@@ -102,11 +102,28 @@ struct MediaViewer: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                Color.clear
-                if let image = loader.image {
-                    Image(uiImage: image).resizable().scaledToFit().frame(width: geometry.size.width, height: geometry.size.height)
+                ZStack {
+                    Color.clear
+                    if let image = loader.image {
+                        Image(uiImage: image).resizable().scaledToFit().frame(width: geometry.size.width, height: geometry.size.height)
+                    }
+                    if let player = loader.player { PlayerSurface(player: player).allowsHitTesting(false) }
                 }
-                if let player = loader.player { PlayerSurface(player: player).allowsHitTesting(false) }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .contentShape(Rectangle())
+                .onTapGesture { if loader.started { loader.toggleVideo(asset) } }
+                .onLongPressGesture { loader.pause(); options() }
+                .simultaneousGesture(DragGesture(minimumDistance: 25).onChanged { value in
+                    if abs(value.translation.width) > abs(value.translation.height) { translation = value.translation.width }
+                }.onEnded { value in
+                    let dx = value.translation.width
+                    if abs(dx) > 85 && abs(dx) > abs(value.translation.height) { loader.pause(); swipe(dx < 0) }
+                    withAnimation(.easeOut(duration: 0.18)) { translation = 0 }
+                })
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(asset.mediaType == .video ? "Video" : "Photo")
+                .accessibilityIdentifier("mediaSurface")
+                .accessibilityValue(asset.localIdentifier)
                 if loader.loading { ProgressView().tint(.white).padding(18).background(.black.opacity(0.45), in: Circle()) }
                 if let failure = loader.failure {
                     VStack(spacing: 12) {
@@ -134,15 +151,6 @@ struct MediaViewer: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             .contentShape(Rectangle())
             .offset(x: translation)
-            .onTapGesture { if loader.started { loader.toggleVideo(asset) } }
-            .onLongPressGesture { loader.pause(); options() }
-            .simultaneousGesture(DragGesture(minimumDistance: 25).onChanged { value in
-                if abs(value.translation.width) > abs(value.translation.height) { translation = value.translation.width }
-            }.onEnded { value in
-                let dx = value.translation.width
-                if abs(dx) > 85 && abs(dx) > abs(value.translation.height) { loader.pause(); swipe(dx < 0) }
-                withAnimation(.easeOut(duration: 0.18)) { translation = 0 }
-            })
             .task(id: asset.localIdentifier) { loader.load(asset, size: geometry.size.applying(CGAffineTransform(scaleX: UIScreen.main.scale, y: UIScreen.main.scale))) }
             .onChange(of: paused) { _, value in if value { loader.pause() } }
             .onChange(of: phase) { _, value in if value != .active { loader.pause() } }

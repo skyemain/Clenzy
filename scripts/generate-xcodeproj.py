@@ -138,6 +138,25 @@ def main() -> None:
     add(test_target, """{ isa = PBXNativeTarget; buildConfigurationList = %s; buildPhases = ( %s, %s ); buildRules = ( ); dependencies = ( %s ); name = ClenzyLiteTests; productName = ClenzyLiteTests; productReference = %s; productType = "com.apple.product-type.bundle.unit-test"; }""" % (test_list, test_sources, test_frameworks, dependency, test_product))
     add(project_id, """{ isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1500; }; buildConfigurationList = %s; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = ( en, Base ); mainGroup = %s; productRefGroup = %s; projectDirPath = ""; projectRoot = ""; targets = ( %s, %s ); }""" % (proj_list, main_group, products_group, app_target, test_target))
 
+    ui_target, ui_product, ui_group = uid("target:ui"), uid("product:ui"), uid("group:ui")
+    ui_source = Path("ClenzyLiteUITests/GalleryUITests.swift")
+    add(file_ref(ui_source), '{ isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryUITests.swift; sourceTree = "<group>"; }')
+    add(build_ref(ui_source), "{ isa = PBXBuildFile; fileRef = %s; }" % file_ref(ui_source))
+    add(ui_group, '{ isa = PBXGroup; children = ( %s ); path = ClenzyLiteUITests; sourceTree = "<group>"; }' % file_ref(ui_source))
+    add(ui_product, '{ isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClenzyLiteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; }')
+    ui_sources, ui_frameworks = uid("phase:uisources"), uid("phase:uiframeworks")
+    add(ui_sources, "{ isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ( %s ); runOnlyForDeploymentPostprocessing = 0; }" % build_ref(ui_source))
+    add(ui_frameworks, "{ isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; }")
+    ui_debug, ui_release, ui_list = uid("cfg:ui:debug"), uid("cfg:ui:release"), uid("list:ui")
+    ui_settings = 'GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.skyemain.clenzylite.ios.UITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_TARGET_NAME = ClenzyLite; CODE_SIGNING_ALLOWED = NO;'
+    for config, name in [(ui_debug, "Debug"), (ui_release, "Release")]:
+        add(config, "{ isa = XCBuildConfiguration; buildSettings = { %s }; name = %s; }" % (ui_settings, name))
+    add(ui_list, "{ isa = XCConfigurationList; buildConfigurations = (%s, %s); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; }" % (ui_debug, ui_release))
+    add(ui_target, '{ isa = PBXNativeTarget; buildConfigurationList = %s; buildPhases = (%s, %s); buildRules = (); dependencies = (%s); name = ClenzyLiteUITests; productName = ClenzyLiteUITests; productReference = %s; productType = "com.apple.product-type.bundle.ui-testing"; }' % (ui_list, ui_sources, ui_frameworks, dependency, ui_product))
+    objects = [obj.replace('targets = ( %s, %s );' % (app_target, test_target), 'targets = ( %s, %s, %s );' % (app_target, test_target, ui_target))
+               .replace('children = ( %s, %s, %s );' % (group_id[Path("ClenzyLite")], test_group, products_group), 'children = ( %s, %s, %s, %s );' % (group_id[Path("ClenzyLite")], test_group, ui_group, products_group))
+               .replace('children = ( %s, %s ); name = Products;' % (app_product, test_product), 'children = ( %s, %s, %s ); name = Products;' % (app_product, test_product, ui_product)) for obj in objects]
+
     project = ROOT / "ClenzyLite.xcodeproj"
     project.mkdir(exist_ok=True)
     (project / "project.pbxproj").write_text(
@@ -160,6 +179,9 @@ def main() -> None:
     <Testables>
       <TestableReference skipped="NO">
         <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{test_target}" BuildableName="ClenzyLiteTests.xctest" BlueprintName="ClenzyLiteTests" ReferencedContainer="container:ClenzyLite.xcodeproj"/>
+      </TestableReference>
+      <TestableReference skipped="NO">
+        <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="{ui_target}" BuildableName="ClenzyLiteUITests.xctest" BlueprintName="ClenzyLiteUITests" ReferencedContainer="container:ClenzyLite.xcodeproj"/>
       </TestableReference>
     </Testables>
   </TestAction>

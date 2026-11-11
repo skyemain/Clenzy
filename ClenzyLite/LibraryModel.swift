@@ -11,6 +11,8 @@ import Observation
     var measuring = false
     var sizes: [String: Int64] = [:]
     private var sizeTask: Task<Void, Never>?
+    private var sizeGeneration = UUID()
+    private var attemptedSizes: Set<String> = []
     private let store: ReviewStore
     private var loadGeneration = 0
 
@@ -54,6 +56,7 @@ import Observation
             assets = fetched
             // Limited access must not erase progress for temporarily inaccessible photos.
             if authorization == .authorized { update { $0.reconcile(valid: Set(fetched.map(\.localIdentifier))) } }
+            if state.current == nil, let first = ordered.first?.id { update { $0.current = first } }
             if state.sort == .size { measureSizes() }
         }
     }
@@ -79,7 +82,9 @@ import Observation
     func setSort(_ value: ReviewSort) {
         update { $0.sort = value; $0.current = nil }
         sizeTask?.cancel()
-        if value == .size { measureSizes() } else { measuring = false }
+        sizeGeneration = UUID()
+        measuring = false
+        if value == .size { measureSizes() }
     }
     func setQueue(_ value: ReviewQueue) { update { $0.queue = value; $0.current = nil } }
     func commitTrash() {
@@ -87,6 +92,9 @@ import Observation
         let ids = Array(state.pendingTrash)
         let fetched = PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
         guard fetched.count > 0 else { error = "These photos are no longer accessible. Check Photos access in Settings."; return }
+        var submittedIDs = Set<String>()
+        fetched.enumerateObjects { asset, _, _ in submittedIDs.insert(asset.localIdentifier) }
+        let submitted = submittedIDs
         busy = true
         PHPhotoLibrary.shared().performChanges({ PHAssetChangeRequest.deleteAssets(fetched) }) { [weak self] success, failure in
             Task { @MainActor in
@@ -94,8 +102,8 @@ import Observation
                 self.busy = false
                 if success {
                     self.update { s in
-                        s.pendingTrash.subtract(ids)
-                        s.undo.removeAll { ids.contains($0.id) }
+                        s.pendingTrash.subtract(submitted)
+                        s.undo.removeAll { submitted.contains($0.id) }
                         s.current = nil
                     }
                     self.refresh()
@@ -108,17 +116,30 @@ import Observation
     private func measureSizes() {
         guard !measuring else { return }
         measuring = true
+        let token = UUID()
+        sizeGeneration = token
         let snapshot = assets
+        let sequence = state.sequence
+        let queue = state.queue
+        let visible = ordered.first?.id
+        if state.current == nil { update { $0.current = visible } }
         sizeTask = Task {
             for asset in snapshot {
-                if Task.isCancelled { break }
-                if sizes[asset.localIdentifier] != nil { continue }
+                if Task.isCancelled || token != sizeGeneration { return }
+                if attemptedSizes.contains(asset.localIdentifier) { continue }
                 let resources = PHAssetResource.assetResources(for: asset)
                 guard let resource = resources.first(where: { $0.type == .fullSizeVideo || $0.type == .fullSizePhoto }) ?? resources.first else { continue }
                 let bytes = await Self.localBytes(resource)
+                guard !Task.isCancelled, token == sizeGeneration else { return }
+                attemptedSizes.insert(asset.localIdentifier)
                 if let bytes { sizes[asset.localIdentifier] = bytes }
             }
+            guard token == sizeGeneration else { return }
             measuring = false
+            if state.sort == .size, state.sequence == sequence, state.queue == queue, state.current == visible {
+                update { $0.current = nil }
+                if let first = ordered.first?.id { update { $0.current = first } }
+            }
         }
     }
     nonisolated private static func localBytes(_ resource: PHAssetResource) async -> Int64? {

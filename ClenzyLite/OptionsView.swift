@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import PhotosUI
 
 struct OptionsView: View {
     @Bindable var model: LibraryModel
@@ -60,9 +61,12 @@ struct OptionsView: View {
     }
 }
 private struct LimitedPhotosPicker: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
     func makeUIViewController(context: Context) -> UIViewController {
         let controller = UIViewController()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: controller) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: controller) { _ in dismiss() }
+        }
         return controller
     }
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}

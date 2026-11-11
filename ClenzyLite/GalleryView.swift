@@ -15,11 +15,11 @@ struct GalleryView: View {
             else if let asset = model.currentAsset {
                 MediaViewer(asset: asset, paused: showOptions || showTrash || model.busy, options: { showOptions = true }, swipe: model.swipe)
                     .ignoresSafeArea(edges: .horizontal)
+                    .accessibilityAction(named: "Options") { showOptions = true }
                     .accessibilityAction(named: "Queue for Trash") { model.swipe(trash: true) }
                     .accessibilityAction(named: "Next photo or video") { model.swipe(trash: false) }
                 VStack {
                     HStack {
-                        Button { showOptions = true } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }.accessibilityLabel("Options")
                         Spacer()
                         Button { model.star() } label: {
                             Image(systemName: model.state.stars.contains(asset.localIdentifier) ? "star.fill" : "star").font(.system(size: 20)).frame(width: 44, height: 44)
@@ -75,7 +75,7 @@ struct GalleryView: View {
             Image(systemName: "sparkle").font(.system(size: 50)).foregroundStyle(.tint)
             Text("Clenzy Lite").font(.largeTitle.bold())
             Text("Your gallery. One swipe at a time.").foregroundStyle(.secondary)
-            Text("Choose all photos and videos, or only selected items. Left queues for Trash, right moves on. Star anything you want to keep out of the regular queue.")
+            Text("Choose all photos and videos, or only selected items. Left queues for Trash, right moves on. Star anything you want to keep out of the regular queue. Long-press an item for options.")
                 .font(.callout).multilineTextAlignment(.center)
             Button(model.authorization == .notDetermined ? "Choose Photos access" : "Open Photos permissions") {
                 if model.authorization == .notDetermined { model.requestAccess() } else { openSettings() }

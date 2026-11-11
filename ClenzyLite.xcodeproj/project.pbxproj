@@ -19,8 +19,8 @@
 		8C2477ED943F42328BC0A88F = { isa = PBXGroup; children = ( DB0E494EEE185D5233E30C5D, 275347AA6F5D9D57CFEF60F4, 054B35E0DE9182CF466BD1C7, BA73F3468186D07DFE2242C2, A612F9C03DBAEFA9D642EC31, D5E8309991074496D4877034, 2998EE57B8BBFB475277286A ); path = ClenzyLite; sourceTree = "<group>"; };
 		DB0E494EEE185D5233E30C5D = { isa = PBXGroup; children = ( C66C9F6A6E8ECC448824BDC3, 2D0B4E9E36D794649DFF0D6B ); path = Resources; sourceTree = "<group>"; };
 		EEFE21A1443933CA4DE017DA = { isa = PBXGroup; children = ( 14D74D8326E90F5DD63548A6 ); path = ClenzyLiteTests; sourceTree = "<group>"; };
-		00C45FD35CB0F9C5F764F070 = { isa = PBXGroup; children = ( B6CDB6E5D160E013280D3C68, E02A90D9643568EA39115CFB ); name = Products; sourceTree = "<group>"; };
-		ADCF10F76EBF2A74473E9DC4 = { isa = PBXGroup; children = ( 8C2477ED943F42328BC0A88F, EEFE21A1443933CA4DE017DA, 00C45FD35CB0F9C5F764F070 ); sourceTree = "<group>"; };
+		00C45FD35CB0F9C5F764F070 = { isa = PBXGroup; children = ( B6CDB6E5D160E013280D3C68, E02A90D9643568EA39115CFB, 6876384C1F14AB301558A48A ); name = Products; sourceTree = "<group>"; };
+		ADCF10F76EBF2A74473E9DC4 = { isa = PBXGroup; children = ( 8C2477ED943F42328BC0A88F, EEFE21A1443933CA4DE017DA, 9D1F2B3F17BB8AA6FB663F5C, 00C45FD35CB0F9C5F764F070 ); sourceTree = "<group>"; };
 		FC7E195B01869AD8406389E3 = { isa = PBXBuildFile; fileRef = 275347AA6F5D9D57CFEF60F4; };
 		188F8BF4E3DF95BC35EB7F58 = { isa = PBXBuildFile; fileRef = 054B35E0DE9182CF466BD1C7; };
 		70D756ABE9FA2BBCB2317570 = { isa = PBXBuildFile; fileRef = BA73F3468186D07DFE2242C2; };
@@ -116,7 +116,17 @@
 		D799BAE6088A90139B415FCC = { isa = PBXContainerItemProxy; containerPortal = 98F54143AB4E86B28C3AFEE0; proxyType = 1; remoteGlobalIDString = 29C7B681C8D62CBAC94D51C0; remoteInfo = ClenzyLite; };
 		DE58E2B17C19600779694943 = { isa = PBXTargetDependency; target = 29C7B681C8D62CBAC94D51C0; targetProxy = D799BAE6088A90139B415FCC; };
 		7EC8F98B7A265120217712DE = { isa = PBXNativeTarget; buildConfigurationList = CA25E31FA3A46B2171497E0D; buildPhases = ( 7841DBE1BAAF034D23036D63, F3BB5758E5F4E3B0CEACBF5B ); buildRules = ( ); dependencies = ( DE58E2B17C19600779694943 ); name = ClenzyLiteTests; productName = ClenzyLiteTests; productReference = E02A90D9643568EA39115CFB; productType = "com.apple.product-type.bundle.unit-test"; };
-		98F54143AB4E86B28C3AFEE0 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1500; }; buildConfigurationList = 6D6194B745F9FCF78E19905D; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = ( en, Base ); mainGroup = ADCF10F76EBF2A74473E9DC4; productRefGroup = 00C45FD35CB0F9C5F764F070; projectDirPath = ""; projectRoot = ""; targets = ( 29C7B681C8D62CBAC94D51C0, 7EC8F98B7A265120217712DE ); };
+		98F54143AB4E86B28C3AFEE0 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 1500; }; buildConfigurationList = 6D6194B745F9FCF78E19905D; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = ( en, Base ); mainGroup = ADCF10F76EBF2A74473E9DC4; productRefGroup = 00C45FD35CB0F9C5F764F070; projectDirPath = ""; projectRoot = ""; targets = ( 29C7B681C8D62CBAC94D51C0, 7EC8F98B7A265120217712DE, 4125057379AE12C52671CDDE ); };
+		1F3F2047DA9660498AAA6380 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryUITests.swift; sourceTree = "<group>"; };
+		04EDE2E47027E634478B8F8E = { isa = PBXBuildFile; fileRef = 1F3F2047DA9660498AAA6380; };
+		9D1F2B3F17BB8AA6FB663F5C = { isa = PBXGroup; children = ( 1F3F2047DA9660498AAA6380 ); path = ClenzyLiteUITests; sourceTree = "<group>"; };
+		6876384C1F14AB301558A48A = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClenzyLiteUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		72BC6E98A8781598B15C2738 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = ( 04EDE2E47027E634478B8F8E ); runOnlyForDeploymentPostprocessing = 0; };
+		EA7CB8D541287571BA57EFCF = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		CA95A729D71C15B3BFCC7771 = { isa = XCBuildConfiguration; buildSettings = { GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.skyemain.clenzylite.ios.UITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_TARGET_NAME = ClenzyLite; CODE_SIGNING_ALLOWED = NO; }; name = Debug; };
+		76B76C54BA3EE960FAC98C62 = { isa = XCBuildConfiguration; buildSettings = { GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = com.skyemain.clenzylite.ios.UITests; PRODUCT_NAME = "$(TARGET_NAME)"; SWIFT_VERSION = 5.0; TEST_TARGET_NAME = ClenzyLite; CODE_SIGNING_ALLOWED = NO; }; name = Release; };
+		9DD85781611C66EF57FB00DE = { isa = XCConfigurationList; buildConfigurations = (CA95A729D71C15B3BFCC7771, 76B76C54BA3EE960FAC98C62); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		4125057379AE12C52671CDDE = { isa = PBXNativeTarget; buildConfigurationList = 9DD85781611C66EF57FB00DE; buildPhases = (72BC6E98A8781598B15C2738, EA7CB8D541287571BA57EFCF); buildRules = (); dependencies = (DE58E2B17C19600779694943); name = ClenzyLiteUITests; productName = ClenzyLiteUITests; productReference = 6876384C1F14AB301558A48A; productType = "com.apple.product-type.bundle.ui-testing"; };
 	};
 	rootObject = 98F54143AB4E86B28C3AFEE0;
 }
