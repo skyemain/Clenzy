@@ -605,6 +605,16 @@ public final class LiteActivity extends ComponentActivity {
 
     private void about() {
         var menu = sheet("Clenzy Lite " + BuildConfig.VERSION_NAME);
+        String privacyUrl = "https://github.com/skyemain/VCleaner/blob/android-lite-play/docs/privacy.md";
+        row(menu, "Privacy policy", () -> {
+            try {
+                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(privacyUrl)));
+            } catch (android.content.ActivityNotFoundException error) {
+                var policy = sheet("Privacy policy");
+                policy.addView(label(privacyUrl, 15, muted()));
+                row(policy, "Back", this::about);
+            }
+        });
         menu.addView(label("Swipe left to move media to Android Trash. Swipe right for the next item. Starred items stay out of the regular queue.", 15, muted()));
         row(menu, "Back", this::options);
     }
