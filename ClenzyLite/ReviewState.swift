@@ -12,6 +12,7 @@ struct ReviewAction: Codable, Equatable {
     let id: String
     let previousRank: Int?
     let trashed: Bool
+    let queue: ReviewQueue
 }
 struct ReviewState: Codable {
     var stars: Set<String> = []
@@ -44,7 +45,7 @@ struct ReviewState: Codable {
             }
     }
     mutating func swipe(_ id: String, trash: Bool, items: [MediaRecord]) {
-        undo.append(ReviewAction(id: id, previousRank: reviewed[id], trashed: trash))
+        undo.append(ReviewAction(id: id, previousRank: reviewed[id], trashed: trash, queue: queue))
         undo = Array(undo.suffix(2))
         sequence += 1
         reviewed[id] = sequence
@@ -57,6 +58,7 @@ struct ReviewState: Codable {
         guard let action = undo.popLast() else { return }
         reviewed[action.id] = action.previousRank
         if action.trashed { pendingTrash.remove(action.id) }
+        queue = action.queue
         current = action.id
     }
     mutating func reconcile(valid: Set<String>) {

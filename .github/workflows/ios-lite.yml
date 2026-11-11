@@ -6,7 +6,7 @@ on:
     branches: [ios-lite]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: ios-lite-${{ github.ref }}
   cancel-in-progress: true
@@ -58,3 +58,19 @@ jobs:
         with:
           name: Clenzy-Lite-1.0-iOS-simulator
           path: build/DerivedData/Build/Products/Debug-iphonesimulator/ClenzyLite.app
+      - name: Export UI screenshots
+        run: xcrun xcresulttool export attachments --path build/Tests.xcresult --output-path build/Screenshots
+      - name: Publish unsigned development builds
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ditto -c -k --keepParent build/ClenzyLite.xcarchive build/Clenzy-Lite-1.0-iOS-unsigned.xcarchive.zip
+          ditto -c -k --keepParent build/DerivedData/Build/Products/Debug-iphonesimulator/ClenzyLite.app build/Clenzy-Lite-1.0-iOS-simulator.zip
+          ditto -c -k build/Screenshots build/Clenzy-Lite-1.0-iOS-test-screenshots.zip
+          shasum -a 256 build/Clenzy-Lite-1.0-iOS-*.zip > build/SHA256SUMS.txt
+          tag=ios-lite-v1.0-build-1
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" --title "Clenzy Lite 1.0 for iOS — development build" --notes "Native iOS Lite for iOS 17+. Includes an UNSIGNED device archive (requires Xcode and your signing team), a simulator app, and simulator test screenshots. These are not installable IPAs. Open the Xcode project from the ios-lite branch to install on your own iPhone with a Personal Team, or use an Apple Developer membership for TestFlight distribution. Swipe left queues Trash; Undo reverses the last two swipes; commit the batch using Apple's confirmation." --prerelease --latest=false
+          fi
+          gh release upload "$tag" build/Clenzy-Lite-1.0-iOS-*.zip build/Clenzy-Lite-launch.png build/SHA256SUMS.txt --clobber

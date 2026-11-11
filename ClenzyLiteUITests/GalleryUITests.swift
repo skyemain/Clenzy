@@ -2,8 +2,16 @@ import XCTest
 
 final class GalleryUITests: XCTestCase {
     @MainActor func testGalleryResumeUndoMenusAndVideo() throws {
+        continueAfterFailure = false
         let app = XCUIApplication()
         app.launch()
+        if app.buttons["Choose Photos access"].waitForExistence(timeout: 3) {
+            app.buttons["Choose Photos access"].tap()
+            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            let allow = springboard.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Full Access' OR label CONTAINS[c] 'All Photos'")).firstMatch
+            XCTAssertTrue(allow.waitForExistence(timeout: 10), springboard.debugDescription)
+            allow.tap()
+        }
         let surface = app.descendants(matching: .any).matching(identifier: "mediaSurface").firstMatch
         XCTAssertTrue(surface.waitForExistence(timeout: 20), app.debugDescription)
         func id() -> String { surface.value as? String ?? "" }

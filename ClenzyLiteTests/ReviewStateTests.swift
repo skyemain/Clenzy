@@ -32,6 +32,14 @@ final class ReviewStateTests: XCTestCase {
         s.undoLast(); s.undoLast(); s.undoLast()
         XCTAssertEqual(s.reviewed["c"], 1)
     }
+    func testUndoReturnsToOriginalQueue() {
+        var s = ReviewState()
+        s.swipe("c", trash: true, items: items)
+        s.queue = .starred
+        s.undoLast()
+        XCTAssertEqual(s.queue, .regular)
+        XCTAssertEqual(s.ordered(items).first?.id, "c")
+    }
     func testStarsExcludedFromRegular() {
         var s = ReviewState(); s.stars = ["b"]
         XCTAssertEqual(s.ordered(items).map(\.id), ["c", "a"])
