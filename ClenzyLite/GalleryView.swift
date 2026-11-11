@@ -8,6 +8,7 @@ struct GalleryView: View {
     @State private var tutorialOffset: CGFloat = 0
     @Environment(\.scenePhase) private var phase
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         ZStack {
             (scheme == .dark ? Color(red: 0.035, green: 0.035, blue: 0.05) : Color(.systemBackground)).ignoresSafeArea()
@@ -33,7 +34,14 @@ struct GalleryView: View {
                             Label("Next", systemImage: "arrow.right")
                         }.font(.caption.weight(.medium)).padding(12).background(.ultraThinMaterial, in: Capsule())
                             .allowsHitTesting(false)
-                            .onAppear { withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) { tutorialOffset = 9 } }
+                            .task(id: asset.localIdentifier) {
+                                guard !reduceMotion else { return }
+                                for offset: CGFloat in [-9, 9, -9, 9, 0] {
+                                    guard !Task.isCancelled else { return }
+                                    withAnimation(.easeInOut(duration: 0.25)) { tutorialOffset = offset }
+                                    try? await Task.sleep(for: .milliseconds(300))
+                                }
+                            }
                     }
                     footer
                 }.padding(.horizontal, 12).foregroundStyle(.primary).shadow(color: .black.opacity(0.45), radius: 3)

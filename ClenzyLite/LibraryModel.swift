@@ -68,6 +68,10 @@ import Observation
     }
     func swipe(trash: Bool) {
         guard !busy, let asset = currentAsset else { return }
+        guard !trash || asset.canPerform(.delete) else {
+            error = "Photos marks this item as read-only. It cannot be moved to Trash from Clenzy."
+            return
+        }
         let records = records
         update { $0.swipe(asset.localIdentifier, trash: trash, items: records) }
     }
@@ -80,7 +84,8 @@ import Observation
         }
     }
     func setSort(_ value: ReviewSort) {
-        update { $0.sort = value; $0.current = nil }
+        guard state.sort != value else { return }
+        guard update({ $0.sort = value; $0.current = nil }) else { return }
         sizeTask?.cancel()
         sizeGeneration = UUID()
         measuring = false
@@ -124,17 +129,21 @@ import Observation
         let visible = ordered.first?.id
         if state.current == nil { update { $0.current = visible } }
         sizeTask = Task {
+            var measured = sizes
+            var attempted = attemptedSizes
             for asset in snapshot {
                 if Task.isCancelled || token != sizeGeneration { return }
-                if attemptedSizes.contains(asset.localIdentifier) { continue }
+                if attempted.contains(asset.localIdentifier) { continue }
                 let resources = PHAssetResource.assetResources(for: asset)
                 guard let resource = resources.first(where: { $0.type == .fullSizeVideo || $0.type == .fullSizePhoto }) ?? resources.first else { continue }
                 let bytes = await Self.localBytes(resource)
                 guard !Task.isCancelled, token == sizeGeneration else { return }
-                attemptedSizes.insert(asset.localIdentifier)
-                if let bytes { sizes[asset.localIdentifier] = bytes }
+                attempted.insert(asset.localIdentifier)
+                if let bytes { measured[asset.localIdentifier] = bytes }
             }
             guard token == sizeGeneration else { return }
+            sizes = measured
+            attemptedSizes = attempted
             measuring = false
             if state.sort == .size, state.sequence == sequence, state.queue == queue, state.current == visible {
                 update { $0.current = nil }

@@ -31,6 +31,14 @@ jobs:
           xcrun simctl addmedia "$DEVICE" build/TestMedia/*.jpg
           xcrun simctl addmedia "$DEVICE" build/TestMedia/video.mov
           xcodebuild -project ClenzyLite.xcodeproj -scheme ClenzyLite -destination "platform=iOS Simulator,id=$DEVICE" -parallel-testing-enabled NO -derivedDataPath build/DerivedData -resultBundlePath build/Tests.xcresult CODE_SIGNING_ALLOWED=NO test-without-building
+      - name: Export UI screenshots
+        if: always()
+        run: xcrun xcresulttool export attachments --path build/Tests.xcresult --output-path build/Screenshots
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Clenzy-Lite-iOS-screenshots
+          path: build/Screenshots
       - name: Capture launch screen
         timeout-minutes: 3
         run: |
@@ -58,8 +66,6 @@ jobs:
         with:
           name: Clenzy-Lite-1.0-iOS-simulator
           path: build/DerivedData/Build/Products/Debug-iphonesimulator/ClenzyLite.app
-      - name: Export UI screenshots
-        run: xcrun xcresulttool export attachments --path build/Tests.xcresult --output-path build/Screenshots
       - name: Publish unsigned development builds
         if: github.event_name == 'push'
         env:
