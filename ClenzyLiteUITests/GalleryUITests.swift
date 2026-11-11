@@ -60,7 +60,7 @@ final class GalleryUITests: XCTestCase {
         app.buttons["Settings"].tap()
         screenshot("Settings")
         app.buttons["Access check"].tap()
-        XCTAssertTrue(app.staticTexts["All photos"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Photos access, All photos"].waitForExistence(timeout: 5))
         screenshot("Access")
         app.navigationBars.buttons.firstMatch.tap()
         app.navigationBars.buttons.firstMatch.tap()
