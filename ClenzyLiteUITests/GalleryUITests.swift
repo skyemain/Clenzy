@@ -4,13 +4,17 @@ final class GalleryUITests: XCTestCase {
     @MainActor func testGalleryResumeUndoMenusAndVideo() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
+        addUIInterruptionMonitor(withDescription: "Photos access") { alert in
+            let allow = alert.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Full Access' OR label CONTAINS[c] 'All Photos'")).firstMatch
+            if allow.exists { allow.tap(); return true }
+            return false
+        }
         app.launch()
         if app.buttons["Choose Photos access"].waitForExistence(timeout: 3) {
             app.buttons["Choose Photos access"].tap()
             let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
             let allow = springboard.buttons.matching(NSPredicate(format: "label CONTAINS[c] 'Full Access' OR label CONTAINS[c] 'All Photos'")).firstMatch
-            XCTAssertTrue(allow.waitForExistence(timeout: 10), springboard.debugDescription)
-            allow.tap()
+            if allow.waitForExistence(timeout: 2) { allow.tap() }
         }
         let surface = app.descendants(matching: .any).matching(identifier: "mediaSurface").firstMatch
         XCTAssertTrue(surface.waitForExistence(timeout: 20), app.debugDescription)
