@@ -53,7 +53,7 @@ jobs:
           grep -q PAGE_ALIGNMENT_16K upload/bundle-config.txt
           unzip -q "$aab" 'base/lib/*/*.so' -d "$RUNNER_TEMP/native"
           while IFS= read -r -d '' lib; do
-            readelf -lW "$lib" | awk '$1 == "LOAD" { if (strtonum($NF) < 16384) exit 1; found=1 } END { if (!found) exit 1 }' || { echo "Unaligned library: $lib"; exit 1; }
+            readelf -lW "$lib" | awk '$1 == "LOAD" { if (($NF + 0) < 16384) exit 1; found=1 } END { if (!found) exit 1 }' || { echo "Unaligned library: $lib"; exit 1; }
           done < <(find "$RUNNER_TEMP/native" -name '*.so' -print0)
           (cd upload && sha256sum *.aab > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4

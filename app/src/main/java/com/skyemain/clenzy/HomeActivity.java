@@ -59,9 +59,18 @@ public final class HomeActivity extends AppCompatActivity {
         addSetting("Compress media","Replace photos or videos with smaller versions","Videos",()->startActivity(new Intent(this,CompressActivity.class)));
         addSetting("Cleanup history","Recent cleanup results","Downloads",this::history);
         addSetting("Privacy & access",accessSummary(),"settings",this::accessSettings);
+        addSetting("Privacy policy","How Clenzy handles data","settings",this::openPrivacyPolicy);
         addSetting("Clenzy cache","Manage temporary files","Duplicate copies",()->open("cache"));
         addSetting("About Clenzy","Version "+BuildConfig.VERSION_NAME,"Home",()->message("Clenzy "+BuildConfig.VERSION_NAME,"Offline storage review and cleanup."));
         setContentView(scroll);scroll.requestApplyInsets();
+    }
+    private void openPrivacyPolicy() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(
+                    "https://github.com/skyemain/VCleaner/blob/android-play/docs/privacy.md")));
+        } catch (ActivityNotFoundException error) {
+            message("Privacy policy", "https://github.com/skyemain/VCleaner/blob/android-play/docs/privacy.md");
+        }
     }
     private String accessSummary(){
         boolean all=Build.VERSION.SDK_INT>=30?Environment.isExternalStorageManager():checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)==PackageManager.PERMISSION_GRANTED;
