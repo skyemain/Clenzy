@@ -351,4 +351,18 @@ public class LiteJourneyTest {
             }
         } finally { clean(photo, video); }
     }
+    @Test public void capturePlayListingScreens() throws Exception {
+        grantMedia();
+        Uri photo = fixture("Clenzy Lite sample photo.png", false);
+        try (var scenario = ActivityScenario.launch(LiteActivity.class)) {
+            find(By.desc("Gallery photo"));
+            device.waitForIdle();
+            var directory = java.util.Objects.requireNonNull(context.getExternalFilesDir(null));
+            assertTrue(device.takeScreenshot(new java.io.File(directory, "gallery.png")));
+            find(By.desc("Gallery photo")).longClick();
+            find(By.text("About Clenzy Lite"));
+            device.waitForIdle();
+            assertTrue(device.takeScreenshot(new java.io.File(directory, "options.png")));
+        } finally { clean(photo); }
+    }
 }

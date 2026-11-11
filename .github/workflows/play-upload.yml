@@ -2,6 +2,7 @@ name: Clenzy-Lite Play upload bundle
 on:
   push:
     branches: [android-lite-play]
+    paths-ignore: [app/src/androidTest/**, .github/workflows/play-screens.yml]
   workflow_dispatch:
 permissions:
   contents: read
