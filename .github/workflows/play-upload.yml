@@ -51,10 +51,31 @@ jobs:
           grep -q 'targetSdkVersion="36"' upload/manifest.xml
           java -jar "$RUNNER_TEMP/bundletool.jar" dump config --bundle="$aab" > upload/bundle-config.txt
           grep -q PAGE_ALIGNMENT_16K upload/bundle-config.txt
-          unzip -q "$aab" 'base/lib/*/*.so' -d "$RUNNER_TEMP/native"
-          while IFS= read -r -d '' lib; do
-            readelf -lW "$lib" | awk '$1 == "LOAD" { if (($NF + 0) < 16384) exit 1; found=1 } END { if (!found) exit 1 }' || { echo "Unaligned library: $lib"; exit 1; }
-          done < <(find "$RUNNER_TEMP/native/base/lib/arm64-v8a" "$RUNNER_TEMP/native/base/lib/x86_64" -name '*.so' -print0)
+          python3 - "$aab" <<'PY'
+          import struct
+          import sys
+          import zipfile
+
+          with zipfile.ZipFile(sys.argv[1]) as bundle:
+              for abi in ("arm64-v8a", "x86_64"):
+                  libraries = [name for name in bundle.namelist()
+                               if name.startswith(f"base/lib/{abi}/") and name.endswith(".so")]
+                  assert libraries, f"Missing 64-bit libraries for {abi}"
+                  for name in libraries:
+                      with bundle.open(name) as library:
+                          header = library.read(64)
+                          assert header[:5] == b"\x7fELF\x02", f"Invalid 64-bit ELF: {name}"
+                          endian = "<" if header[5] == 1 else ">"
+                          offset = struct.unpack_from(endian + "Q", header, 32)[0]
+                          stride, count = struct.unpack_from(endian + "HH", header, 54)
+                          library.seek(offset)
+                          segments = [library.read(stride) for _ in range(count)]
+                          alignments = [struct.unpack_from(endian + "Q", segment, 48)[0]
+                                        for segment in segments
+                                        if struct.unpack_from(endian + "I", segment)[0] == 1]
+                          assert alignments and min(alignments) >= 16384, f"Unaligned library: {name}: {alignments}"
+                          print(f"16 KB aligned: {name}")
+          PY
           (cd upload && sha256sum *.aab > SHA256SUMS.txt)
       - uses: actions/upload-artifact@v4
         with:
