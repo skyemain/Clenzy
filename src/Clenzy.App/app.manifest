@@ -4,8 +4,8 @@
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
     <security>
       <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
-        <!-- Windows requests administrator permission at launch. -->
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        <!-- Run normally. Clenzy requests elevation only when the user starts an operation that needs it. -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>

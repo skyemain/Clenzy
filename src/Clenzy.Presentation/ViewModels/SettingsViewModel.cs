@@ -75,6 +75,20 @@ public sealed class SettingsSectionViewModel
 
     public string Title { get; }
 
+    public string DisplayTitle => Title switch
+    {
+        "GENERAL" => "General",
+        "AUTOMATION" => "Automation",
+        "CLEANING BEHAVIOR" => "Cleaning behavior",
+        "SYSTEM JUNK" => "System junk",
+        "BROWSERS" => "Browsers",
+        "PRIVACY" => "Privacy",
+        "REGISTRY" => "Registry",
+        _ => Title
+    };
+
+    public bool IsExpandedByDefault => Title is "GENERAL" or "CLEANING BEHAVIOR" or "SYSTEM JUNK";
+
     public string? Description { get; }
 
     public IReadOnlyList<SettingToggleViewModel> Toggles { get; }

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using Clenzy.Core.Interfaces;
 using Clenzy.Core.Models;
 using Clenzy.Core.Services;
@@ -34,6 +35,8 @@ public sealed class MainViewModel : ObservableObject
     private string _detail = string.Empty;
     private string _errorMessage = string.Empty;
     private string _lastCleanedText = string.Empty;
+    private string _storageText = "Storage information unavailable";
+    private double _storageUsedFraction;
     private ScanReport? _scan;
     private CleanReport? _clean;
     private int _registryRepaired;
@@ -65,9 +68,11 @@ public sealed class MainViewModel : ObservableObject
         ViewDetailsCommand = new RelayCommand(OpenDetails, () => HasResults && CanNavigate);
         ReviewRegistryCommand = new RelayCommand(OpenRegistryReview, () => HasRegistryIssues && CanNavigate);
         OpenSettingsCommand = new RelayCommand(OpenSettings, () => CanNavigate);
+        OpenHistoryCommand = new RelayCommand(OpenHistory, () => CanNavigate);
         RestartAsAdministratorCommand = new AsyncRelayCommand(RestartAsAdministratorAsync, () => CanNavigate && !_ctx.Elevation.IsElevated, OnUnexpectedError);
 
         RefreshLastCleaned();
+        RefreshStorage();
         RefreshRam(null);
     }
 
@@ -120,6 +125,8 @@ public sealed class MainViewModel : ObservableObject
     public RelayCommand ReviewRegistryCommand { get; }
 
     public RelayCommand OpenSettingsCommand { get; }
+
+    public RelayCommand OpenHistoryCommand { get; }
 
     public AsyncRelayCommand RestartAsAdministratorCommand { get; }
 
@@ -175,7 +182,7 @@ public sealed class MainViewModel : ObservableObject
         AppState.AwaitingReview => "Waiting for review...",
         AppState.Cleaning => "Cleaning...",
         AppState.Completed => "Clean Again",
-        _ => "Clean Now"
+        _ => "Scan & clean"
     };
 
     public string OperationText
@@ -237,6 +244,18 @@ public sealed class MainViewModel : ObservableObject
         private set => SetProperty(ref _lastCleanedText, value);
     }
 
+    public string StorageText
+    {
+        get => _storageText;
+        private set => SetProperty(ref _storageText, value);
+    }
+
+    public double StorageUsedFraction
+    {
+        get => _storageUsedFraction;
+        private set => SetProperty(ref _storageUsedFraction, value);
+    }
+
     public string LiveStatsText => State switch
     {
         AppState.Scanning => $"{_liveItems:N0} items examined",
@@ -283,6 +302,7 @@ public sealed class MainViewModel : ObservableObject
         ViewDetailsCommand.RaiseCanExecuteChanged();
         ReviewRegistryCommand.RaiseCanExecuteChanged();
         OpenSettingsCommand.RaiseCanExecuteChanged();
+        OpenHistoryCommand.RaiseCanExecuteChanged();
         RestartAsAdministratorCommand.RaiseCanExecuteChanged();
         FreeRamCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(ShowAdminHint));
@@ -303,6 +323,37 @@ public sealed class MainViewModel : ObservableObject
         {
             _ctx.Log.Error("Could not read history", ex);
             LastCleanedText = string.Empty;
+        }
+    }
+
+    private void RefreshStorage()
+    {
+        try
+        {
+            var systemRoot = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.System));
+            if (string.IsNullOrWhiteSpace(systemRoot))
+            {
+                StorageText = "Storage information unavailable";
+                StorageUsedFraction = 0;
+                return;
+            }
+
+            var drive = new DriveInfo(systemRoot);
+            if (!drive.IsReady || drive.TotalSize <= 0)
+            {
+                StorageText = "Storage information unavailable";
+                StorageUsedFraction = 0;
+                return;
+            }
+
+            var free = Math.Clamp(drive.AvailableFreeSpace, 0, drive.TotalSize);
+            StorageText = $"{ByteFormatter.Format(free)} free of {ByteFormatter.Format(drive.TotalSize)}";
+            StorageUsedFraction = 1d - (double)free / drive.TotalSize;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            StorageText = "Storage information unavailable";
+            StorageUsedFraction = 0;
         }
     }
 
@@ -328,6 +379,7 @@ public sealed class MainViewModel : ObservableObject
 
         State = AppState.Ready;
         RefreshLastCleaned();
+        RefreshStorage();
     }
 
     /// <summary>
@@ -689,6 +741,7 @@ public sealed class MainViewModel : ObservableObject
     private void Complete(ScanReport scan, CleanReport clean, PlanMode mode, bool skippedForReview = false)
     {
         SaveSession(SessionRecorder.Create(scan, clean, mode, _registryRepaired));
+        RefreshStorage();
 
         foreach (var row in Rows)
         {
@@ -754,6 +807,22 @@ public sealed class MainViewModel : ObservableObject
     private void OpenSettings()
     {
         CurrentPage = new SettingsViewModel(_ctx, CloseSettings, OpenRegistryBackups, () => IsBusy);
+    }
+
+    private void OpenHistory()
+    {
+        CurrentPage = new HistoryPageViewModel(_ctx, () => CurrentPage = null);
+    }
+
+    public void NavigateHome()
+    {
+        if (CurrentPage is PageViewModel page)
+        {
+            page.BackCommand.Execute(null);
+            return;
+        }
+
+        CurrentPage = null;
     }
 
     private void CloseSettings()

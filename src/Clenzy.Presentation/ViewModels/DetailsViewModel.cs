@@ -15,7 +15,19 @@ public sealed class DetailsViewModel : PageViewModel
     public DetailsViewModel(ScanReport scan, CleanReport? clean, Action back)
         : base("Details", back)
     {
-        var cleaned = clean?.Modules.SelectMany(m => m.Categories).ToDictionary(c => (c.ModuleId, c.Category))
+        var cleaned = clean?.Modules.SelectMany(m => m.Categories)
+                         .GroupBy(c => (c.ModuleId, c.Category))
+                         .ToDictionary(
+                             group => group.Key,
+                             group => new CategoryResult(
+                                 group.Key.ModuleId,
+                                 group.First().Group,
+                                 group.Key.Category,
+                                 group.Sum(c => c.Cleaned),
+                                 group.Sum(c => c.Skipped),
+                                 group.Sum(c => c.Errors),
+                                 group.Sum(c => c.EstimatedBytes),
+                                 group.Sum(c => c.RecoveredBytes)))
                       ?? new Dictionary<(string, string), CategoryResult>();
 
         var rows = new List<DetailRow>();

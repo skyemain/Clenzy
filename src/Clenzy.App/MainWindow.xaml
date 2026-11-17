@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:Clenzy.App.Views"
         xmlns:vm="clr-namespace:Clenzy.Presentation.ViewModels;assembly=Clenzy.Presentation"
-        Title="Clenzy" Width="1120" Height="680" MinWidth="940" MinHeight="600"
+        Title="Clenzy" Width="1220" Height="800" MinWidth="920" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource WindowBackgroundBrush}" TextElement.Foreground="{DynamicResource TextBrush}"
         FontFamily="{StaticResource UiFont}" FontSize="14"
@@ -15,47 +15,103 @@
         <DataTemplate DataType="{x:Type vm:DetailsViewModel}"><views:DetailsView /></DataTemplate>
         <DataTemplate DataType="{x:Type vm:RegistryReviewViewModel}"><views:RegistryReviewView /></DataTemplate>
         <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SettingsView /></DataTemplate>
+        <DataTemplate DataType="{x:Type vm:HistoryPageViewModel}"><views:HistoryView /></DataTemplate>
+        <Style x:Key="RailButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,9" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="MinHeight" Value="43" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlHoverBrush}" /><Setter Property="Foreground" Value="{DynamicResource TextBrush}" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Chrome" Property="Background" Value="{DynamicResource ControlPressedBrush}" /></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
-    <Grid Background="{DynamicResource WindowBackgroundBrush}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Grid>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="218" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+        <Border Grid.Column="0" Background="{DynamicResource WindowBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
+            <DockPanel Margin="15,22,14,16">
+                <StackPanel DockPanel.Dock="Top" Margin="7,0,0,25">
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="34" Height="34" CornerRadius="11" Background="{DynamicResource HeroBrush}" Margin="0,0,10,0">
+                            <TextBlock Text="✦" Foreground="{DynamicResource OnAccentBrush}" FontSize="19" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="CLENZY" FontSize="14" FontWeight="Bold" />
+                            <TextBlock Text="PC care, made clear" Style="{StaticResource SecondaryText}" FontSize="10" Margin="0,1,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Bottom">
+                    <Border Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="1"
+                            CornerRadius="13" Padding="12" Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="ON THIS PC" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
+                            <TextBlock Text="Your files stay yours." FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="Choose exactly what Clenzy can clean." Style="{StaticResource SecondaryText}" FontSize="11" Margin="0,3,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding ShortVersion, StringFormat='Version {0}'}" Style="{StaticResource SecondaryText}" FontSize="11" Margin="10,0,0,0" />
+                </StackPanel>
+                <StackPanel>
+                    <Button x:Name="HomeNav" Style="{StaticResource RailButton}" Click="NavigateHomeClick" AutomationProperties.Name="Home">
+                        <StackPanel Orientation="Horizontal" Width="174"><TextBlock Text="&#xE80F;" FontFamily="{StaticResource IconFont}" Width="30" Foreground="{DynamicResource AccentBrush}" /><TextBlock Text="Home" /></StackPanel>
+                    </Button>
+                    <Button x:Name="CleanupNav" Style="{StaticResource RailButton}" Click="NavigateCleanupClick" AutomationProperties.Name="Scan and clean">
+                        <StackPanel Orientation="Horizontal" Width="174"><TextBlock Text="&#xE721;" FontFamily="{StaticResource IconFont}" Width="30" Foreground="{DynamicResource AccentBrush}" /><TextBlock Text="Cleanup" /></StackPanel>
+                    </Button>
+                    <Button x:Name="DebloatNav" Style="{StaticResource RailButton}" Click="DebloatClick" AutomationProperties.Name="Debloat">
+                        <StackPanel Orientation="Horizontal" Width="174"><TextBlock Text="&#xE9D9;" FontFamily="{StaticResource IconFont}" Width="30" Foreground="{DynamicResource AccentBrush}" /><TextBlock Text="Debloat" /></StackPanel>
+                    </Button>
+                    <Button x:Name="HistoryNav" Style="{StaticResource RailButton}" Click="NavigateHistoryClick" AutomationProperties.Name="Cleanup history">
+                        <StackPanel Orientation="Horizontal" Width="174"><TextBlock Text="&#xE81C;" FontFamily="{StaticResource IconFont}" Width="30" Foreground="{DynamicResource AccentBrush}" /><TextBlock Text="Activity" /></StackPanel>
+                    </Button>
+                    <Button x:Name="SettingsNav" Style="{StaticResource RailButton}" Click="NavigateSettingsClick" AutomationProperties.Name="Settings">
+                        <StackPanel Orientation="Horizontal" Width="174"><TextBlock Text="&#xE713;" FontFamily="{StaticResource IconFont}" Width="30" Foreground="{DynamicResource AccentBrush}" /><TextBlock Text="Settings" /></StackPanel>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-        <Border Grid.RowSpan="2" Background="{DynamicResource AmbientBrush}" IsHitTestVisible="False" />
-
-        <Grid Margin="40,18,32,6" Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Image Source="/Assets/Clenzy.png" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
-                <TextBlock Text="CLENZY" FontFamily="{StaticResource MonoFont}" FontSize="13" FontWeight="SemiBold"
-                           Margin="12,0,0,0" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding ShortVersion}" Style="{StaticResource SecondaryText}" FontFamily="{StaticResource MonoFont}"
-                           FontSize="11" Margin="10,2,0,0" VerticalAlignment="Center" />
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Debloat" FontSize="12" Padding="16,8" Margin="0,0,12,0" Click="DebloatClick"/>
-            <Button Style="{StaticResource IconButton}" Content="&#xE713;"
-                    Command="{Binding OpenSettingsCommand}" ToolTip="Settings"
-                    AutomationProperties.Name="Settings" />
-            </StackPanel>
-        </Grid>
-
-        <Grid Margin="32,18,40,6" Visibility="{Binding IsHome, Converter={StaticResource InverseBoolToVisibility}}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button Style="{StaticResource IconButton}" Content="&#xE72B;" Command="{Binding CurrentPage.BackCommand}"
-                    ToolTip="Back" AutomationProperties.Name="Back" />
-            <TextBlock Grid.Column="1" Text="{Binding CurrentPage.Title}" Style="{StaticResource PageTitle}"
-                       VerticalAlignment="Center" Margin="8,0,0,0" AutomationProperties.HeadingLevel="Level1" />
-        </Grid>
-
-        <Border x:Name="DebloatSurface" Grid.RowSpan="2" Panel.ZIndex="10" Visibility="Collapsed" Background="{DynamicResource WindowBackgroundBrush}"><ContentControl x:Name="DebloatHost"/></Border>
-        <Grid Grid.Row="1">
-            <views:HomeView Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}}" />
-            <ContentControl Content="{Binding CurrentPage}" IsTabStop="False"
-                            Visibility="{Binding IsHome, Converter={StaticResource InverseBoolToVisibility}}" />
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions><RowDefinition Height="68" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+            <Border Grid.RowSpan="2" Background="{DynamicResource AmbientBrush}" IsHitTestVisible="False" />
+            <Grid Grid.Row="0" Margin="30,0,30,0">
+                <TextBlock Text="Your PC" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                           Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}}" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsHome, Converter={StaticResource InverseBoolToVisibility}}">
+                    <Button Style="{StaticResource IconButton}" Content="&#xE72B;" Click="NavigateHomeClick" ToolTip="Back to home" AutomationProperties.Name="Back to home" />
+                    <TextBlock Text="{Binding CurrentPage.Title}" Style="{StaticResource PageTitle}" FontWeight="SemiBold" FontSize="19"
+                               VerticalAlignment="Center" Margin="6,0,0,0" AutomationProperties.HeadingLevel="Level1" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Content="Run as administrator" Command="{Binding RestartAsAdministratorCommand}" Margin="0,0,10,0" Padding="12,7"
+                            Visibility="{Binding ShowAdminHint, Converter={StaticResource BoolToVisibility}}"
+                            ToolTip="Requests elevation only for operations that need it." />
+                    <TextBlock Text="{Binding ShortVersion, StringFormat='v{0}'}" Style="{StaticResource SecondaryText}" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+            <Grid Grid.Row="1">
+                <views:HomeView Visibility="{Binding IsHome, Converter={StaticResource BoolToVisibility}}" />
+                <ContentControl Content="{Binding CurrentPage}" IsTabStop="False"
+                                Visibility="{Binding IsHome, Converter={StaticResource InverseBoolToVisibility}}" />
+                <Border x:Name="DebloatSurface" Panel.ZIndex="10" Visibility="Collapsed" Background="{DynamicResource WindowBackgroundBrush}">
+                    <ContentControl x:Name="DebloatHost" />
+                </Border>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

@@ -37,56 +37,66 @@
             <ItemsControl ItemsSource="{Binding Sections}" Focusable="False" IsTabStop="False">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:SettingsSectionViewModel}">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Title, StringFormat='[ {0} ]'}" Style="{StaticResource SectionTitle}" />
-                            <TextBlock Text="{Binding Description}" Style="{StaticResource SecondaryText}" Margin="4,-4,0,8"
-                                       Visibility="{Binding Description, Converter={StaticResource NotEmptyToVisibility}}" />
-                            <ItemsControl ItemsSource="{Binding Toggles}" Focusable="False" IsTabStop="False">
-                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:SettingToggleViewModel}">
-                                        <Border Style="{StaticResource Card}" Margin="0,0,10,10" Padding="16,10">
-                                            <CheckBox Style="{StaticResource SwitchCheckBox}" IsChecked="{Binding IsOn, Mode=TwoWay}"
-                                                      AutomationProperties.Name="{Binding Label}"
-                                                      AutomationProperties.HelpText="{Binding Description}">
-                                                <StackPanel>
-                                                    <StackPanel Orientation="Horizontal">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,10" Padding="16,10">
+                            <Expander IsExpanded="{Binding IsExpandedByDefault}" Foreground="{DynamicResource TextBrush}">
+                                <Expander.Header>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding DisplayTitle}" FontSize="15" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Description}" Style="{StaticResource SecondaryText}" FontSize="11" Margin="0,3,0,0"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="960"
+                                                   Visibility="{Binding Description, Converter={StaticResource NotEmptyToVisibility}}" />
+                                    </StackPanel>
+                                </Expander.Header>
+                                <ItemsControl ItemsSource="{Binding Toggles}" Focusable="False" IsTabStop="False" Margin="0,14,0,4">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type vm:SettingToggleViewModel}">
+                                            <Border Style="{StaticResource Card}" Margin="0,0,10,10" Padding="16,10">
+                                                <CheckBox Style="{StaticResource SwitchCheckBox}" IsChecked="{Binding IsOn, Mode=TwoWay}"
+                                                          AutomationProperties.Name="{Binding Label}"
+                                                          AutomationProperties.HelpText="{Binding Description}">
+                                                    <StackPanel>
                                                         <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding Description}" Style="{StaticResource SecondaryText}" />
+                                                        <TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="SemiBold" Margin="0,3,0,0"
+                                                                   Foreground="{DynamicResource WarningBrush}"
+                                                                   Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}" />
                                                     </StackPanel>
-                                                    <TextBlock Text="{Binding Description}" Style="{StaticResource SecondaryText}" />
-                                                    <TextBlock Text="{Binding Badge}" FontSize="11" FontWeight="SemiBold" Margin="0,3,0,0"
-                                                               Foreground="{DynamicResource WarningBrush}"
-                                                               Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}" />
-                                                </StackPanel>
-                                            </CheckBox>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-
-            <TextBlock Text="[ NOT SUPPORTED ]" Style="{StaticResource SectionTitle}" />
-            <ItemsControl ItemsSource="{Binding UnsupportedFeatures}" Focusable="False" IsTabStop="False">
-                <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:UnsupportedFeature}">
-                        <Border Style="{StaticResource Card}" Margin="0,0,10,10" Padding="16,10">
-                            <StackPanel>
-                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding Reason}" Style="{StaticResource SecondaryText}" />
-                            </StackPanel>
+                                                </CheckBox>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Expander>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <TextBlock Text="[ NEVER CLEAN THESE ]" Style="{StaticResource SectionTitle}" />
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10" Padding="16,10">
+                <Expander>
+                    <Expander.Header><TextBlock Text="Not supported by Clenzy" FontSize="15" FontWeight="SemiBold" /></Expander.Header>
+                    <ItemsControl ItemsSource="{Binding UnsupportedFeatures}" Focusable="False" IsTabStop="False" Margin="0,12,0,4">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:UnsupportedFeature}">
+                                <Border Style="{StaticResource Card}" Margin="0,0,10,10" Padding="16,10">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Reason}" Style="{StaticResource SecondaryText}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
+            </Border>
+
             <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Text="Folders and files listed here are skipped by every cleaner, even inside approved locations." Style="{StaticResource SecondaryText}" />
+                <Expander>
+                <Expander.Header><StackPanel><TextBlock Text="Excluded files and folders" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="Items listed here are always skipped." Style="{StaticResource SecondaryText}" FontSize="11" /></StackPanel></Expander.Header>
+                <StackPanel Margin="0,12,0,2">
                     <ItemsControl ItemsSource="{Binding ExcludedFolders}" Margin="0,8,0,0" Focusable="False" IsTabStop="False">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -126,19 +136,23 @@
                         <Button Content="Add file..." Command="{Binding AddExcludedFileCommand}" />
                     </StackPanel>
                 </StackPanel>
+                </Expander>
             </Border>
 
-            <TextBlock Text="[ REGISTRY BACKUPS ]" Style="{StaticResource SectionTitle}" />
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
+            <Border Style="{StaticResource Card}" Margin="0,10,0,10">
+                <Expander>
+                    <Expander.Header><TextBlock Text="Registry backups" FontSize="15" FontWeight="SemiBold" /></Expander.Header>
+                    <StackPanel Margin="0,12,0,2">
                     <TextBlock Text="Every registry repair saves a verified backup first. Open the list to restore one." Style="{StaticResource SecondaryText}" />
                     <Button Content="View registry backups" Command="{Binding OpenBackupsCommand}" HorizontalAlignment="Left" Margin="0,10,0,0" />
-                </StackPanel>
+                    </StackPanel>
+                </Expander>
             </Border>
 
-            <TextBlock Text="[ HISTORY AND LOGS ]" Style="{StaticResource SectionTitle}" />
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                <Expander>
+                    <Expander.Header><TextBlock Text="History and logs" FontSize="15" FontWeight="SemiBold" /></Expander.Header>
+                    <StackPanel Margin="0,12,0,2">
                     <TextBlock Text="No sessions recorded yet.">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource SecondaryText}">
@@ -166,10 +180,10 @@
                         <Button Content="Open logs folder" Command="{Binding OpenLogsCommand}" Margin="0,0,8,6" />
                         <Button Content="Clear history and logs" Command="{Binding ClearHistoryCommand}" Margin="0,0,8,6" />
                     </WrapPanel>
-                </StackPanel>
+                    </StackPanel>
+                </Expander>
             </Border>
 
-            <TextBlock Text="[ ABOUT ]" Style="{StaticResource SectionTitle}" />
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <TextBlock Text="{Binding VersionText}" FontWeight="SemiBold" />

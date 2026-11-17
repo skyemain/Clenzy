@@ -71,7 +71,11 @@ public sealed class WpfDialogService : IDialogService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
         {
-            MessageBox.Show(Owner, "The folder could not be opened: " + ex.Message, "Clenzy", MessageBoxButton.OK, MessageBoxImage.Warning);
+            var dialog = new ConfirmDialog("Could not open folder", "The folder could not be opened: " + ex.Message, "OK", null)
+            {
+                Owner = Owner
+            };
+            dialog.ShowDialog();
         }
     }
 }
