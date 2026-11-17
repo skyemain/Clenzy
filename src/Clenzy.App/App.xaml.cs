@@ -36,16 +36,28 @@ public partial class App : Application
         if (e.Args.Contains("--windows11-cleanup", StringComparer.OrdinalIgnoreCase) || e.Args.Contains("--windows11-smoke", StringComparer.OrdinalIgnoreCase))
         {
             ThemeManager.Start(false);
-            MainWindow = new Clenzy.App.Views.Windows11CleanupWindow();
+            var cleanupPage = new Clenzy.App.Views.Windows11CleanupWindow();
+            var cleanupWindow = new Window
+            {
+                Title = "Clenzy · Debloat",
+                Width = 1080,
+                Height = 780,
+                MinWidth = 820,
+                MinHeight = 600,
+                WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                Background = (System.Windows.Media.Brush)Current.FindResource("WindowBackgroundBrush"),
+                Content = cleanupPage
+            };
+            MainWindow = cleanupWindow;
+            cleanupPage.ExitRequested = cleanupWindow.Close;
             if (e.Args.Contains("--windows11-smoke", StringComparer.OrdinalIgnoreCase))
             {
-                var testWindow = (Clenzy.App.Views.Windows11CleanupWindow)MainWindow;
-                testWindow.ContentRendered += async (_, _) => {
-                    try { await testWindow.RunSandboxSmokeAsync(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Clenzy-Windows11-sandbox.png")); Shutdown(0); }
+                cleanupWindow.ContentRendered += async (_, _) => {
+                    try { await cleanupPage.RunSandboxSmokeAsync(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Clenzy-Windows11-sandbox.png")); Shutdown(0); }
                     catch (Exception ex) { System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Clenzy-Windows11-smoke-error.txt"), ex.ToString()); Shutdown(2); }
                 };
             }
-            MainWindow.Show();
+            cleanupWindow.Show();
             return;
         }
 
