@@ -1,10 +1,10 @@
 name: Windows candidate
 on:
   push:
-    branches: [windows]
+    branches: [windows, windows-redesign-test]
     paths-ignore: ['release/**']
   pull_request:
-    branches: [windows]
+    branches: [windows, windows-redesign-test]
   workflow_dispatch:
 permissions:
   contents: write
@@ -52,9 +52,11 @@ jobs:
       - name: Publish candidate to Windows branch
         if: github.event_name != 'pull_request'
         shell: pwsh
+        env:
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
-          git fetch origin windows
-          if ((git rev-parse origin/windows) -ne '${{ github.sha }}') { exit 0 }
+          git fetch origin "$env:TARGET_BRANCH"
+          if ((git rev-parse "origin/$env:TARGET_BRANCH") -ne '${{ github.sha }}') { exit 0 }
           'RELEASE_READY=true' >> $env:GITHUB_ENV
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -62,13 +64,21 @@ jobs:
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) { exit 0 }
           git commit -m 'Publish Windows candidate [skip ci]'
-          git push origin HEAD:windows
+          git push origin "HEAD:$env:TARGET_BRANCH"
 
       - name: Publish GitHub prerelease
         if: github.event_name != 'pull_request' && env.RELEASE_READY == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ github.ref_name }}
         run: |
-          gh release create windows-v1.0.0 release/Clenzy-1.0.0-win-x64.exe release/SHA256SUMS.txt release/THIRD-PARTY-NOTICES.txt --target '${{ github.sha }}' --title 'Clenzy 1.0.0 for Windows' --prerelease --latest=false --notes 'Expands Windows 11 Cleanup with a shared 79-action catalog: 47 optional apps, advertising/privacy preferences, Recall policy, selective startup and guarded optional services. Reuses reviewed disk cleanup, preserves security and gaming dependencies, and records verified changes and rollback. Windows x64 unsigned candidate; live Windows 11 validation remains outstanding.'
+          if ($env:TARGET_BRANCH -eq 'windows') {
+            $tag = 'windows-v1.0.0'
+            $title = 'Clenzy 1.0.0 for Windows'
+          } else {
+            $tag = $env:TARGET_BRANCH
+            $title = "Clenzy Windows candidate ($env:TARGET_BRANCH)"
+          }
+          gh release create $tag release/Clenzy-1.0.0-win-x64.exe release/SHA256SUMS.txt release/THIRD-PARTY-NOTICES.txt --target '${{ github.sha }}' --title $title --prerelease --latest=false --notes 'Expands Windows 11 Cleanup with a shared 79-action catalog: 47 optional apps, advertising/privacy preferences, Recall policy, selective startup and guarded optional services. Reuses reviewed disk cleanup, preserves security and gaming dependencies, and records verified changes and rollback. Windows x64 unsigned candidate; live Windows 11 validation remains outstanding.'
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
