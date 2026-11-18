@@ -34,7 +34,8 @@ jobs:
       - name: Exercise sandbox UI without host changes
         shell: pwsh
         run: |
-          $app = Start-Process -FilePath 'artifacts/release/Clenzy-1.0.0-win-x64.exe' -ArgumentList '--windows11-smoke' -PassThru
+          $version = (Get-Content VERSION -Raw).Trim()
+          $app = Start-Process -FilePath "artifacts/release/Clenzy-$version-win-x64.exe" -ArgumentList '--windows11-smoke' -PassThru
           if (-not $app.WaitForExit(60000)) { $app.Kill(); throw 'UI smoke test timed out' }
           if ($app.ExitCode -ne 0) { Get-Content "$env:TEMP/Clenzy-Windows11-smoke-error.txt" -ErrorAction SilentlyContinue; throw 'UI smoke test failed' }
           New-Item -ItemType Directory -Force screenshots | Out-Null
@@ -70,5 +71,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create windows-v1.0.0 release/Clenzy-1.0.0-win-x64.exe release/SHA256SUMS.txt release/THIRD-PARTY-NOTICES.txt --target '${{ github.sha }}' --title 'Clenzy 1.0.0 for Windows' --prerelease --latest=false --notes 'Expands Windows 11 Cleanup with a shared 79-action catalog: 47 optional apps, advertising/privacy preferences, Recall policy, selective startup and guarded optional services. Reuses reviewed disk cleanup, preserves security and gaming dependencies, and records verified changes and rollback. Windows x64 unsigned candidate; live Windows 11 validation remains outstanding.'
+          $version = (Get-Content VERSION -Raw).Trim()
+          $tag = "windows-v$version"
+          $title = "Clenzy $version for Windows"
+          $notes = 'Windows x64 candidate. Includes the refreshed visual theme and the existing reviewed cleanup, privacy, startup, and optional services workflows. The build is unsigned; live Windows 11 validation remains outstanding.'
+          $assets = @("release/Clenzy-$version-win-x64.exe", 'release/SHA256SUMS.txt', 'release/THIRD-PARTY-NOTICES.txt')
+          gh release view $tag --json tagName --jq .tagName 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @assets --clobber
+            if ($LASTEXITCODE -ne 0) { throw 'Release asset upload failed' }
+            gh release edit $tag --title $title --notes $notes --prerelease --latest=false
+          }
+          else {
+            gh release create $tag @assets --target '${{ github.sha }}' --title $title --prerelease --latest=false --notes $notes
+          }
           if ($LASTEXITCODE -ne 0) { throw 'Release publication failed' }
