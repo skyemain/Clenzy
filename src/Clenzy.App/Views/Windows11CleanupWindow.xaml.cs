@@ -31,23 +31,39 @@ public partial class Windows11CleanupWindow : Window
     private void SetBusy(bool value)
     {
         busy = value; Findings.IsEnabled = Back.IsEnabled = !value;
-        Apply.IsEnabled = !value && audit is { IsWindows11: true } && choices.Count > 0;
+        Apply.IsEnabled = !value && audit is { IsWindows11: true } && choices.Any(x => x.Selected);
+        Categories.IsEnabled = Rescan.IsEnabled = !value;
+        Apply.Content = $"Apply changes ({choices.Count(x => x.Selected)})";
         Progress.Visibility = value ? Visibility.Visible : Visibility.Collapsed;
     }
+    private void SelectionClick(object sender, RoutedEventArgs e) => SetBusy(busy);
+    private void FilterChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        Findings.ItemsSource = Categories.SelectedIndex <= 0 ? choices : choices.Where(x => x.Finding.Action.Category == Categories.SelectedItem as string);
+    }
+    private async void ScanClick(object sender, RoutedEventArgs e) { if (!busy) await ScanAsync(); }
     private async Task ScanAsync()
     {
+        audit = null;
+        choices.Clear();
+        Findings.ItemsSource = null;
+        Categories.ItemsSource = null;
+        Report.Visibility = Visibility.Collapsed;
+        Findings.Visibility = Apply.Visibility = Visibility.Visible;
         SetBusy(true);
         try {
             Status.Text = "Scanning installed apps, privacy settings, startup and optional services…";
             audit = await Task.Run(() => backend.AuditAsync(default));
-            choices = audit.Findings.Where(x => x.Available).Select(x => new Choice(x)).ToList(); Findings.ItemsSource = choices;
+            choices = audit.Findings.Where(x => x.Available).Select(x => new Choice(x)).ToList(); Categories.ItemsSource = new[] { "All changes" }.Concat(choices.Select(x => x.Finding.Action.Category).Distinct().OrderBy(x => x)).ToArray();
+            Categories.SelectedIndex = 0;
             Directory.CreateDirectory(ReportsRoot);
             await File.WriteAllTextAsync(Path.Combine(ReportsRoot, "audit-" + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff") + ".json"), JsonSerializer.Serialize(audit));
             Status.Text = audit.IsWindows11 ? $"{choices.Count} available changes. Select the ones you want to apply." : audit.Summary;
         } catch (Exception ex) { Status.Text = "Scan could not complete: " + ex.Message; }
         finally { SetBusy(false); }
     }
-    private async void ApplyClick(object sender, RoutedEventArgs e)
+    private async void ApplyClick(object sender, RoutedEventArgs e) => await ApplySelectedAsync();
+    private async Task ApplySelectedAsync()
     {
         if (busy || audit is null) return;
         var selected = choices.Where(x => x.Selected).Select(x => x.Finding.Action).ToArray();
@@ -55,10 +71,10 @@ public partial class Windows11CleanupWindow : Window
         var destructive = selected.Any(x => x.Irreversible || MaintenanceCatalog.Get(x.Id).Destructive);
         if (destructive && MessageBox.Show(EmbeddedOwner ?? this, "Selected changes can uninstall apps and delete their data or saved Recall snapshots. Export anything you need first. Continue with these selected changes?", "Confirm selected removals", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         var old = engine.Transactions().ToHashSet();
-        SetBusy(true); Status.Text = "Creating and verifying a restore point and backing up settings…";
+        SetBusy(true); Status.Text = "Backing up settings and applying selected changes…";
         OptimizationTransaction? transaction = null; string? failure = null;
         try {
-            transaction = await Task.Run(() => engine.ApplyAsync(audit, selected.Select(x => x.Id), OptimizationProfile.Advanced, true, destructive, default, requireRecoveryPoint: true));
+            transaction = await Task.Run(() => engine.ApplyAsync(audit, selected.Select(x => x.Id), OptimizationProfile.Advanced, true, destructive, default, requireRecoveryPoint: selected.Any(x => MaintenanceCatalog.Get(x.Id).Machine)));
         } catch (Exception ex) {
             failure = ex.Message;
             var id = engine.Transactions().FirstOrDefault(x => !old.Contains(x));
@@ -80,7 +96,7 @@ public partial class Windows11CleanupWindow : Window
             var outcome = c?.Status == "Verified" ? "Changed · verified" : c is null || c.Status == "Prepared" ? "Not changed · not applied" : "Not verified · " + c.Status;
             lines.Add(outcome + " — " + OptimizationCatalog.Get(id).Title);
         }
-        foreach (var c in choices.Where(x => !selected.Contains(x.Finding.Action.Id))) lines.Add("Not changed · not selected — " + c.Title);
+
         lines.Add("\nSettings backups and the full audit are saved locally. Removed app data and Recall snapshots cannot be restored from the settings backup. Windows may require sign-out or restart.");
         ReportText.Text = string.Join("\n\n", lines); Findings.Visibility = Visibility.Collapsed; Report.Visibility = Visibility.Visible;
         try { File.WriteAllText(Path.Combine(ReportsRoot,"report-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".txt"),Status.Text+"\n\n"+ReportText.Text); }
@@ -92,10 +108,15 @@ public partial class Windows11CleanupWindow : Window
         started = true; backend = new SandboxOptimizationBackend(); engine = new(backend, ReportsRoot);
         await ScanAsync();
         if (choices.Count == 0 || choices.Any(x => !x.Finding.Available)) throw new InvalidOperationException("Available-only scan failed.");
-        var tx = await engine.ApplyAsync(audit!,new[]{"advertising"},OptimizationProfile.Advanced,true,false,default,requireRecoveryPoint:true);
-        ShowReport(tx,new[]{"advertising"},null);
+        if (Apply.IsEnabled) throw new InvalidOperationException("Empty selection enabled Apply.");
+        choices.Single(x => x.Finding.Action.Id == "advertising").Selected = true;
+        SetBusy(false);
+        if (!Apply.IsEnabled) throw new InvalidOperationException("Selected change cannot be applied.");
+        await ApplySelectedAsync();
         if (!ReportText.Text.Contains("Changed · verified")) throw new InvalidOperationException("Report missing verified result.");
-        await engine.RestoreAsync(tx.Id,default);
+        await engine.RestoreAsync(engine.Transactions().First(),default);
+        await ScanAsync();
+        if (Apply.IsEnabled || Report.Visibility == Visibility.Visible) throw new InvalidOperationException("Rescan retained stale results.");
         var content = (FrameworkElement)Content; Content = null;
         var surface = new System.Windows.Controls.Border { Background=(Brush)FindResource("WindowBackgroundBrush"), Child=content };
         if (surface.Background is not SolidColorBrush { Color.A:255 }) throw new InvalidOperationException("Embedded page must be opaque.");

@@ -140,6 +140,17 @@ public sealed class Windows11OptimizationTests : IDisposable
         Assert.Equal("1",(await b.ReadAsync("advertising",default)).Value);
         OptimizationAudit awaitAudit() => b.AuditAsync(default).GetAwaiter().GetResult();
     }
+    [Fact] public async Task User_preference_can_be_verified_and_restored_without_system_protection()
+    {
+        var backend = new RecoveryFailureBackend();
+        var engine = new OptimizationEngine(backend, root);
+        var before = await backend.ReadAsync("advertising", default);
+        var transaction = await engine.ApplyAsync(await backend.AuditAsync(default), new[] { "advertising" },
+            OptimizationProfile.Advanced, true, false, default);
+        Assert.Equal("Verified", Assert.Single(transaction.Changes).Status);
+        await engine.RestoreAsync(transaction.Id, default);
+        Assert.Equal(before, await backend.ReadAsync("advertising", default));
+    }
     private sealed class RecoveryFailureBackend : IOptimizationBackend
     {
         private readonly SandboxOptimizationBackend inner = new();
