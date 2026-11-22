@@ -27,30 +27,128 @@ public partial class Windows11CleanupWindow : Window
     {
         ScanMenu.Visibility = Visibility.Collapsed;
         MalwarePanel.Visibility = Visibility.Visible;
-        Status.Text = "Defender handles detected threats using your Windows protection settings. For offline scans, quarantine and protection history, open Windows Security.";
+        Status.Text = "Malware cleaner";
     }
-    private void SecurityClick(object sender, RoutedEventArgs e)
+
+    private CancellationTokenSource? scanCancellation;
+
+    private void QuickClick(object sender, RoutedEventArgs e)
     {
-        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("windowsdefender://threat") { UseShellExecute = true }); }
-        catch (Exception ex) { Status.Text = "Could not open Windows Security: " + ex.Message; }
+        var targets = new[] { Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"), Environment.GetFolderPath(Environment.SpecialFolder.Startup), Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup) };
+        _ = RunThreatAsync(targets.Where(Directory.Exists).ToArray(), false);
     }
-    private async void DefenderClick(object sender, RoutedEventArgs e)
+
+    private void FolderClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new Microsoft.Win32.OpenFolderDialog { Title = "Choose a folder to scan" };
+        if (picker.ShowDialog() == true) _ = RunThreatAsync([picker.FolderName], false);
+    }
+
+    private void CancelThreat(object sender, RoutedEventArgs e) => scanCancellation?.Cancel();
+    private void ThreatSelected(object sender, RoutedEventArgs e)
+    {
+        if (RemoveThreat != null) RemoveThreat.IsEnabled = !busy && ThreatResults.SelectedItem != null;
+    }
+    private void RemoveClick(object sender, RoutedEventArgs e)
+    {
+        if (ThreatResults.SelectedItem is ThreatScanner.Finding item && MessageBox.Show("Recheck and permanently remove this file if it still matches a threat signature?\n\n" + item.File,
+            "Remove detection", MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No) == MessageBoxResult.Yes)
+            _ = RunThreatAsync([item.File], true);
+    }
+
+    private async Task RunThreatAsync(string[] targets, bool remove)
+    {
+        if (busy || targets.Length == 0) { if (!busy) Status.Text = "Choose a folder to scan."; return; }
+        SetBusy(true);
+        if (!remove) ThreatResults.Items.Clear();
+        QuickThreat.IsEnabled = FolderThreat.IsEnabled = RemoveThreat.IsEnabled = false;
+        StopThreat.Visibility = Visibility.Visible;
+        using var cancel = new CancellationTokenSource();
+        scanCancellation = cancel;
+        var progress = new Progress<string>(message => Status.Text = message);
+        try
+        {
+            var summary = await Task.Run(() => ThreatScanner.Scan(targets, remove, progress, item =>
+            {
+                if (!remove) Dispatcher.Invoke(() => ThreatResults.Items.Add(item));
+            }, cancel.Token));
+            Status.Text = summary;
+            if (remove && !File.Exists(targets[0]))
+            {
+                var stale = ThreatResults.Items.OfType<ThreatScanner.Finding>().FirstOrDefault(f => f.File == targets[0]);
+                if (stale != null) ThreatResults.Items.Remove(stale);
+                Status.Text = "File is no longer present. " + summary;
+            }
+        }
+        catch (OperationCanceledException) { Status.Text = "Scan canceled. Results shown are partial."; }
+        catch (Exception ex) { Status.Text = "Scan incomplete. " + ex.Message; }
+        finally
+        {
+            scanCancellation = null;
+            SetBusy(false);
+            QuickThreat.IsEnabled = FolderThreat.IsEnabled = true;
+            StopThreat.Visibility = Visibility.Collapsed;
+            ThreatSelected(this, new RoutedEventArgs());
+        }
+    }
+
+    private void Launch(System.Diagnostics.ProcessStartInfo start, string message)
+    {
+        try { System.Diagnostics.Process.Start(start); Status.Text = message; }
+        catch (Exception ex) { Status.Text = ex.Message; }
+    }
+
+    private void ThreatClick(object sender, RoutedEventArgs e)
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Malwarebytes", "Anti-Malware", "Malwarebytes.exe");
+        bool installed = File.Exists(path);
+        Launch(new(installed ? path : "https://www.malwarebytes.com/mwb-download") { UseShellExecute = true },
+            installed ? "Review scan results and quarantine in Malwarebytes." : "Install Malwarebytes, then choose Open Malwarebytes again.");
+    }
+
+    private void AdwareClick(object sender, RoutedEventArgs e) =>
+        Launch(new("https://www.malwarebytes.com/adwcleaner") { UseShellExecute = true }, "Open the downloaded AdwCleaner and choose Scan Now.");
+
+    private void ComputerClick(object sender, RoutedEventArgs e) =>
+        Launch(new(Path.Combine(Environment.SystemDirectory, "msinfo32.exe")) { UseShellExecute = false }, "System Information shows your model, processor, memory, BIOS and components.");
+
+    private async void BrowserClick(object sender, RoutedEventArgs e)
     {
         if (busy) return;
-        var executable = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Windows Defender", "MpCmdRun.exe");
+        ScanMenu.Visibility = Visibility.Collapsed;
+        BrowserPanel.Visibility = Visibility.Visible;
+        ProfileRows.Children.Clear();
         SetBusy(true);
-        DefenderScan.IsEnabled = false;
-        Status.Text = "Running a full Defender scan. Windows manages remediation. This may take several hours.";
-        try {
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(executable, "-Scan -ScanType 2") {
-                UseShellExecute = false, CreateNoWindow = true
-            }) ?? throw new InvalidOperationException("Defender did not start.");
-            await process.WaitForExitAsync();
-            Status.Text = process.ExitCode == 0 ? "Defender completed the scan. See Protection history for detections and actions."
-                : $"Defender returned code {process.ExitCode}. Open Windows Security to review unresolved threats, permissions or provider status.";
-        } catch (Exception ex) { Status.Text = "Full scan could not run. Open Windows Security to check your antivirus provider. " + ex.Message; }
-        finally { DefenderScan.IsEnabled = true; SetBusy(false); }
+        Status.Text = "Reading browser profiles…";
+        try
+        {
+            var profiles = await Task.Run(BrowserInventory.Read);
+            foreach (var profile in profiles)
+            {
+                ProfileRows.Children.Add(new System.Windows.Controls.TextBlock { Text = profile.Title, FontSize = 20, Margin = new Thickness(0,18,0,6) });
+                AddBrowserAction(profile, "Change default search engine", profile.Edge ? "settings/search" : "settings/searchEngines");
+                foreach (var extension in profile.Extensions)
+                    AddBrowserAction(profile, extension.Name + " · Review / remove", "extensions/?id=" + extension.Id);
+            }
+            Status.Text = profiles.Count == 0 ? "No Chrome or Edge profiles found." : "Choose an extension to confirm removal in its browser. Search settings let you choose Google or Bing. Refresh after making changes.";
+        }
+        catch (Exception ex) { Status.Text = "Could not read browser profiles. " + ex.Message; }
+        finally { SetBusy(false); }
     }
+
+    private void AddBrowserAction(BrowserInventory.Profile profile, string label, string page)
+    {
+        var button = new System.Windows.Controls.Button { Content = label, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0,3,0,3) };
+        button.Click += (_, _) =>
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(profile.Executable) { UseShellExecute = false };
+            start.ArgumentList.Add("--profile-directory=" + profile.Directory);
+            start.ArgumentList.Add((profile.Edge ? "edge://" : "chrome://") + page);
+            Launch(start, "Complete the change in " + profile.Title + ", then refresh profiles.");
+        };
+        ProfileRows.Children.Add(button);
+    }
+
     private void SetBusy(bool value)
     {
         busy = value; Findings.IsEnabled = Back.IsEnabled = !value;
@@ -127,7 +225,7 @@ public partial class Windows11CleanupWindow : Window
         try { File.WriteAllText(Path.Combine(ReportsRoot,"report-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".txt"),Status.Text+"\n\n"+ReportText.Text); }
         catch (Exception ex) { Status.Text += " Report could not be saved: " + ex.Message; }
     }
-    private void DoneClick(object sender, RoutedEventArgs e) { if (!busy && ScanMenu.Visibility != Visibility.Visible) { ReviewPanel.Visibility = MalwarePanel.Visibility = Apply.Visibility = Rescan.Visibility = Visibility.Collapsed; ScanMenu.Visibility = Visibility.Visible; Status.Text = "Choose a scan."; return; }
+    private void DoneClick(object sender, RoutedEventArgs e) { if (!busy && ScanMenu.Visibility != Visibility.Visible) { ReviewPanel.Visibility = BrowserPanel.Visibility = MalwarePanel.Visibility = Apply.Visibility = Rescan.Visibility = Visibility.Collapsed; ScanMenu.Visibility = Visibility.Visible; Status.Text = "Choose a scan."; return; }
         if (!busy) { if (ExitRequested is not null) ExitRequested(); else Close(); } }
     public async Task RunSandboxSmokeAsync(string screenshot)
     {

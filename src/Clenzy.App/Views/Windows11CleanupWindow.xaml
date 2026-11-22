@@ -4,6 +4,7 @@
  <Grid Margin="28" Background="{DynamicResource WindowBackgroundBrush}">
   <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
   <Border CornerRadius="16" Padding="22" Margin="0,0,0,16"><Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#222737" Offset="0"/><GradientStop Color="#504573" Offset="1"/></LinearGradientBrush></Border.Background><StackPanel><TextBlock Text="Windows maintenance" Foreground="#D4CBEF"/><TextBlock Text="Debloat" Foreground="White" FontSize="36" FontWeight="SemiBold"/><TextBlock Text="Review optional apps and Windows preferences." Foreground="#E2DFEE" Margin="0,4,0,0"/></StackPanel></Border>
+  <Button Content="ⓘ" ToolTip="About my computer" AutomationProperties.Name="About my computer" Click="ComputerClick" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Padding="10,4"/>
   <StackPanel Grid.Row="1"><TextBlock x:Name="Status" Text="Choose a scan." TextWrapping="Wrap" Margin="0,0,0,12"/><ProgressBar x:Name="Progress" IsIndeterminate="True" Height="3" Visibility="Collapsed" Margin="0,0,0,12"/></StackPanel>
   <Grid x:Name="ReviewPanel" Grid.Row="2" Visibility="Collapsed">
    <Grid.ColumnDefinitions><ColumnDefinition Width="175"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel Margin="0,0,16,0"><TextBlock Text="Categories" FontWeight="SemiBold" Margin="8"/><ListBox x:Name="Categories" SelectionChanged="FilterChanged" BorderThickness="0" Background="Transparent" Foreground="{DynamicResource TextBrush}"/></StackPanel><ListBox Grid.Column="1" x:Name="Findings" Background="Transparent" Foreground="{DynamicResource TextBrush}" BorderThickness="0" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -14,13 +15,23 @@
   </Grid>
   <StackPanel x:Name="ScanMenu" Grid.Row="2" VerticalAlignment="Top">
     <Button Content="Malware cleaner" Click="MalwareClick" Padding="20" Margin="0,0,0,8"/>
-    <TextBlock Text="Full antivirus scan with Microsoft Defender and access to Windows threat actions." Margin="8,0,0,20" TextWrapping="Wrap"/>
+    <TextBlock Text="Check downloads and startup files for malware and unwanted programs." Margin="8,0,0,20" TextWrapping="Wrap"/>
     <Button Content="Run full deep PC scan" Click="ScanClick" Padding="20" Margin="0,0,0,8"/>
     <TextBlock Text="Inspect installed apps, privacy settings, startup entries and optional services. Review each change before applying." Margin="8,0" TextWrapping="Wrap"/>
+    <Button Content="Fix my browser" Click="BrowserClick" Padding="20" Margin="0,16,0,8"/>
+    <TextBlock Text="Review extensions and repair search settings in Chrome and Edge." Margin="8,0"/>
   </StackPanel>
+  <DockPanel x:Name="BrowserPanel" Grid.Row="2" Visibility="Collapsed"><Button Content="Refresh profiles" Click="BrowserClick" DockPanel.Dock="Top" HorizontalAlignment="Left"/><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="ProfileRows"/></ScrollViewer></DockPanel>
   <StackPanel x:Name="MalwarePanel" Grid.Row="2" Visibility="Collapsed">
-    <Button x:Name="DefenderScan" Content="Run full malware scan" Click="DefenderClick" HorizontalAlignment="Left"/>
-    <Button Content="Open Windows Security" Click="SecurityClick" HorizontalAlignment="Left" Margin="0,12,0,0"/>
+    <WrapPanel><Button x:Name="QuickThreat" Content="Scan downloads and startup" Click="QuickClick"/><Button x:Name="FolderThreat" Content="Scan a folder" Click="FolderClick" Margin="8,0"/><Button x:Name="StopThreat" Content="Cancel scan" Click="CancelThreat" Visibility="Collapsed"/></WrapPanel>
+    <ListBox x:Name="ThreatResults" MaxHeight="200" Margin="0,12" SelectionChanged="ThreatSelected"/>
+    <Button x:Name="RemoveThreat" Content="Remove selected detection" Click="RemoveClick" HorizontalAlignment="Left" IsEnabled="False"/>
+    <Expander Header="Other scanners" Margin="0,16,0,0"><StackPanel>
+    <Button Content="Open Malwarebytes" Click="ThreatClick" HorizontalAlignment="Left"/>
+    <TextBlock Margin="0,8,0,20" TextWrapping="Wrap" Text="Run a Threat Scan, review detections, then quarantine selected items. First use opens the official installer page."/>
+    <Button Content="Get AdwCleaner" Click="AdwareClick" HorizontalAlignment="Left"/>
+    <TextBlock Margin="0,8" TextWrapping="Wrap" Text="Target adware, browser hijackers and unwanted programs with Malwarebytes’ portable cleaner."/>
+    </StackPanel></Expander>
   </StackPanel>
   <DockPanel Grid.Row="3" Margin="0,18,0,0"><Button x:Name="Back" Content="Back" Click="DoneClick" DockPanel.Dock="Left" HorizontalAlignment="Left"/><Button Visibility="Collapsed" x:Name="Rescan" Content="Scan again" Click="ScanClick" DockPanel.Dock="Left" Margin="8,0"/><Button Visibility="Collapsed" x:Name="Apply" Content="Apply" Click="ApplyClick" DockPanel.Dock="Right" HorizontalAlignment="Right" IsEnabled="False" Padding="28,10"/></DockPanel>
  </Grid>
