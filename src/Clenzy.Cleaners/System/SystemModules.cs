@@ -75,6 +75,15 @@ public static class SystemModuleFactory
                 deletion, log),
 
             new SystemFileModule(
+                "system.npm-logs", "Old npm debug logs",
+                "Only npm diagnostic logs older than 30 days in the default per-user cache.",
+                false, RiskLevel.Safe, s => s.CleanUserTemp,
+                (_, _) => Single("npm-logs", "Old npm logs", "Archived npm debug log",
+                    Path.Combine(local, "npm-cache", "_logs"), LogMinAge, RiskLevel.Safe,
+                    patterns: new[] { "*-debug-*.log" }, recursive: false),
+                deletion, log),
+
+            new SystemFileModule(
                 "system.prefetch", "Prefetch files",
                 "Windows prefetch (*.pf) files. Windows recreates them as you use apps; the first launch of each app may be slightly slower. Requires administrator.",
                 true, RiskLevel.Low,
@@ -102,6 +111,8 @@ public static class SystemModuleFactory
                 (_, _) => Multi("shader", "DirectX shader cache", "Compiled shader cache file", TimeSpan.Zero, RiskLevel.Safe,
                     Path.Combine(local, "D3DSCache"),
                     Path.Combine(local, "AMD", "DxCache"),
+                    Path.Combine(local, "AMD", "DxcCache"),
+                    Path.Combine(local, "AMD", "VkCache"),
                     Path.Combine(local, "NVIDIA", "DXCache"),
                     Path.Combine(local, "NVIDIA", "GLCache")),
                 deletion, log),

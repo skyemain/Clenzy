@@ -12,7 +12,7 @@ public partial class Windows11CleanupWindow : Window
     private OptimizationEngine engine = null!;
     private OptimizationAudit? audit;
     private List<Choice> choices = new();
-    private bool busy, started;
+    private bool busy;
     public Window? EmbeddedOwner { get; set; }
     public Action? ExitRequested { get; set; }
     public bool DiskCleanupRequested => false;
@@ -23,10 +23,33 @@ public partial class Windows11CleanupWindow : Window
         InitializeComponent(); engine = new(backend, ReportsRoot);
         Closing += (_, e) => { if (busy) e.Cancel = true; };
     }
-    private async void PageLoaded(object sender, RoutedEventArgs e)
+    private void MalwareClick(object sender, RoutedEventArgs e)
     {
-        if (started || Environment.GetCommandLineArgs().Contains("--windows11-smoke")) return;
-        started = true; await ScanAsync();
+        ScanMenu.Visibility = Visibility.Collapsed;
+        MalwarePanel.Visibility = Visibility.Visible;
+        Status.Text = "Defender handles detected threats using your Windows protection settings. For offline scans, quarantine and protection history, open Windows Security.";
+    }
+    private void SecurityClick(object sender, RoutedEventArgs e)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("windowsdefender://threat") { UseShellExecute = true }); }
+        catch (Exception ex) { Status.Text = "Could not open Windows Security: " + ex.Message; }
+    }
+    private async void DefenderClick(object sender, RoutedEventArgs e)
+    {
+        if (busy) return;
+        var executable = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Windows Defender", "MpCmdRun.exe");
+        SetBusy(true);
+        DefenderScan.IsEnabled = false;
+        Status.Text = "Running a full Defender scan. Windows manages remediation. This may take several hours.";
+        try {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(executable, "-Scan -ScanType 2") {
+                UseShellExecute = false, CreateNoWindow = true
+            }) ?? throw new InvalidOperationException("Defender did not start.");
+            await process.WaitForExitAsync();
+            Status.Text = process.ExitCode == 0 ? "Defender completed the scan. See Protection history for detections and actions."
+                : $"Defender returned code {process.ExitCode}. Open Windows Security to review unresolved threats, permissions or provider status.";
+        } catch (Exception ex) { Status.Text = "Full scan could not run. Open Windows Security to check your antivirus provider. " + ex.Message; }
+        finally { DefenderScan.IsEnabled = true; SetBusy(false); }
     }
     private void SetBusy(bool value)
     {
@@ -44,6 +67,8 @@ public partial class Windows11CleanupWindow : Window
     private async void ScanClick(object sender, RoutedEventArgs e) { if (!busy) await ScanAsync(); }
     private async Task ScanAsync()
     {
+        ScanMenu.Visibility = Visibility.Collapsed;
+        ReviewPanel.Visibility = Rescan.Visibility = Visibility.Visible;
         audit = null;
         choices.Clear();
         Findings.ItemsSource = null;
@@ -102,10 +127,15 @@ public partial class Windows11CleanupWindow : Window
         try { File.WriteAllText(Path.Combine(ReportsRoot,"report-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss-fff")+".txt"),Status.Text+"\n\n"+ReportText.Text); }
         catch (Exception ex) { Status.Text += " Report could not be saved: " + ex.Message; }
     }
-    private void DoneClick(object sender, RoutedEventArgs e) { if (!busy) { if (ExitRequested is not null) ExitRequested(); else Close(); } }
+    private void DoneClick(object sender, RoutedEventArgs e) { if (!busy && ScanMenu.Visibility != Visibility.Visible) { ReviewPanel.Visibility = MalwarePanel.Visibility = Apply.Visibility = Rescan.Visibility = Visibility.Collapsed; ScanMenu.Visibility = Visibility.Visible; Status.Text = "Choose a scan."; return; }
+        if (!busy) { if (ExitRequested is not null) ExitRequested(); else Close(); } }
     public async Task RunSandboxSmokeAsync(string screenshot)
     {
-        started = true; backend = new SandboxOptimizationBackend(); engine = new(backend, ReportsRoot);
+        if (ScanMenu.Visibility != Visibility.Visible || ReviewPanel.Visibility == Visibility.Visible) throw new InvalidOperationException("Scan chooser missing.");
+        MalwareClick(this, new RoutedEventArgs());
+        DoneClick(this, new RoutedEventArgs());
+        if (ScanMenu.Visibility != Visibility.Visible) throw new InvalidOperationException("Malware back navigation failed.");
+        backend = new SandboxOptimizationBackend(); engine = new(backend, ReportsRoot);
         await ScanAsync();
         if (choices.Count == 0 || choices.Any(x => !x.Finding.Available)) throw new InvalidOperationException("Available-only scan failed.");
         if (Apply.IsEnabled) throw new InvalidOperationException("Empty selection enabled Apply.");

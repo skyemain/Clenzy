@@ -28,6 +28,23 @@ public sealed class SystemModuleTests
     };
 
     [Fact]
+    public async Task Npm_cleanup_preserves_recent_logs_and_other_files()
+    {
+        using var h = new Harness();
+        const string logs = "Users/tester/AppData/Local/npm-cache/_logs/";
+        h.Temp.CreateFile(logs + "old-debug-0.log", 600, DateTime.UtcNow.AddDays(-40));
+        h.Temp.CreateFile(logs + "new-debug-0.log", 50, DateTime.UtcNow);
+        h.Temp.CreateFile(logs + "notes.txt", 50, DateTime.UtcNow.AddDays(-40));
+        var settings = Harness.Minimal(s => s.CleanUserTemp = true);
+        var module = h.Module("system.npm-logs");
+        var scan = await module.ScanAsync(Scan(settings), default);
+        var clean = await module.CleanAsync(Clean(settings), scan.Findings, default);
+        Assert.Equal(600, clean.BytesRecovered);
+        Assert.True(File.Exists(h.Temp.Combine(logs + "new-debug-0.log")));
+        Assert.True(File.Exists(h.Temp.Combine(logs + "notes.txt")));
+    }
+
+    [Fact]
     public async Task User_temp_finds_only_old_files_and_cleans_them_with_real_numbers()
     {
         using var h = new Harness();
