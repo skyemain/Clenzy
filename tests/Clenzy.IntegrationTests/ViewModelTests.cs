@@ -351,18 +351,6 @@ public sealed class BrowserCloseFlowTests
     }
 
     [Fact]
-    public async Task A_running_browser_triggers_a_confirmation_that_promises_sign_ins_are_kept()
-    {
-        using var h = Create();
-
-        await h.Main.PrimaryCommand.ExecuteAsync();
-
-        var ask = Assert.Single(h.Dialogs.Confirmations);
-        Assert.Contains("Microsoft Edge", ask.Title);
-        Assert.Contains("signed-in", ask.Message);
-    }
-
-    [Fact]
     public async Task Confirming_closes_the_browser_cleans_its_cache_and_keeps_sign_in_data()
     {
         using var h = Create();
@@ -377,11 +365,14 @@ public sealed class BrowserCloseFlowTests
     }
 
     [Fact]
-    public async Task Declining_leaves_the_running_browser_alone()
+    public async Task Canceling_the_warning_leaves_browser_and_cache_alone()
     {
         using var h = Create();
-        h.Dialogs.Answer = false;
-
+        h.Main.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(h.Main.OperationText) && h.Main.OperationText.StartsWith("Closing Microsoft Edge in 5s"))
+                h.Main.CancelCommand.Execute(null);
+        };
         await h.Main.PrimaryCommand.ExecuteAsync();
 
         Assert.Equal(0, h.Core.Closer.CloseCalls);

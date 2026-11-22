@@ -102,7 +102,8 @@ public static class SystemModuleFactory
                 (_, _) => Multi("shader", "DirectX shader cache", "Compiled shader cache file", TimeSpan.Zero, RiskLevel.Safe,
                     Path.Combine(local, "D3DSCache"),
                     Path.Combine(local, "AMD", "DxCache"),
-                    Path.Combine(local, "NVIDIA", "DXCache")),
+                    Path.Combine(local, "NVIDIA", "DXCache"),
+                    Path.Combine(local, "NVIDIA", "GLCache")),
                 deletion, log),
 
             new SystemFileModule(
@@ -158,7 +159,7 @@ public static class SystemModuleFactory
     private static RulePlan UserTempPlan(SystemPaths paths, TimeSpan minAge)
     {
         var plan = new RulePlan();
-        var roots = new[] { paths.UserTemp, paths.UserTmp }
+        var roots = new[] { paths.UserTemp, paths.UserTmp, Path.Combine(paths.LocalAppData, "Temp") }
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .Select(p => PathGuard.TryCanonicalize(p, out var canonical, out _) ? canonical : null)
             .Where(p => p is not null)

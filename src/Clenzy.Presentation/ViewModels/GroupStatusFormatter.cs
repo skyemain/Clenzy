@@ -50,7 +50,8 @@ public static class GroupStatusFormatter
             return ("Ready to scan", RowKind.Neutral);
         }
 
-        var modules = scan.Modules.Where(m => m.Group == group).ToList();
+        bool Matches(CleanerGroup candidate) => candidate == group || (group == CleanerGroup.Chrome && candidate == CleanerGroup.Edge);
+        var modules = scan.Modules.Where(m => Matches(m.Group)).ToList();
         if (modules.Count == 0)
         {
             return ("Ready to scan", RowKind.Neutral);
@@ -89,7 +90,7 @@ public static class GroupStatusFormatter
 
         if (clean is not null)
         {
-            var results = clean.Modules.Where(m => m.Group == group).ToList();
+            var results = clean.Modules.Where(m => Matches(m.Group)).ToList();
             var bytes = results.Sum(r => r.BytesRecovered);
             var cleaned = results.Sum(r => r.ItemsCleaned);
             var errors = results.Sum(r => r.Errors);

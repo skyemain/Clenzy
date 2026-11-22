@@ -424,8 +424,7 @@ public sealed class SettingsViewModel : PageViewModel
             }),
             new("BROWSERS", "Chrome and Edge are closed first, then only their cache is cleaned. Passwords, bookmarks, history and cookies are never touched, so you stay signed in.", new[]
             {
-                T("close-browsers", "Close running browsers before cleaning", "Closes the window politely and ends leftovers after a few seconds. Off skips any browser that is open.", s => s.CloseBrowsersBeforeCleaning, (s, v) => s.CloseBrowsersBeforeCleaning = v),
-                T("ask-browsers", "Ask before closing a browser", "Shows a confirmation naming the browser. Off closes it without asking.", s => s.AskBeforeClosingBrowsers, (s, v) => s.AskBeforeClosingBrowsers = v),
+                T("close-browsers", "Close running browsers before cleaning", "Manual clean gives you five seconds to cancel. Closes the window politely and ends leftovers after a few seconds. Off skips any browser that is open.", s => s.CloseBrowsersBeforeCleaning, (s, v) => s.CloseBrowsersBeforeCleaning = v),
                 T("chrome", "Chrome cache", "HTTP, code and GPU caches of every profile.", s => s.CleanChromeCache, (s, v) => s.CleanChromeCache = v),
                 T("edge", "Edge cache", "HTTP, code and GPU caches of every profile.", s => s.CleanEdgeCache, (s, v) => s.CleanEdgeCache = v),
                 T("site-storage", "Website storage (Local Storage, IndexedDB, Cache Storage)", "Can sign you out of some sites and removes offline site data. Off by default.", s => s.ClearBrowserSiteStorage, (s, v) => s.ClearBrowserSiteStorage = v,

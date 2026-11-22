@@ -51,8 +51,7 @@ public sealed class MainViewModel : ObservableObject
         Rows = new ObservableCollection<CategoryRowViewModel>
         {
             new(CleanerGroup.SystemJunk, "Temp, Prefetch, caches, logs and crash reports"),
-            new(CleanerGroup.Chrome, "Cache for every profile; sign-ins kept"),
-            new(CleanerGroup.Edge, "Cache for every profile; sign-ins kept"),
+            new(CleanerGroup.Chrome, "Chrome and Edge profile caches", "BROWSER"),
             new(CleanerGroup.Registry, "Broken entries, only fixed after your review"),
             new(CleanerGroup.Privacy, "Run history and recent items, opt-in")
         };
@@ -508,7 +507,7 @@ public sealed class MainViewModel : ObservableObject
             IsIndeterminate = true;
             ProgressFraction = 0;
 
-            await ConfirmBrowserCloseAsync(settings).ConfigureAwait(true);
+
 
             var scanProgress = new DispatchedProgress<EngineProgress>(_ctx.Dispatcher, p => ApplyProgress(runId, p));
             var scan = await Task.Run(() => _ctx.Engine.ScanAsync(settings, scanProgress, token), CancellationToken.None).ConfigureAwait(true);
@@ -545,6 +544,22 @@ public sealed class MainViewModel : ObservableObject
             OperationText = "Cleaning...";
             IsIndeterminate = true;
             ProgressFraction = 0;
+            if (!automatic && settings.CloseBrowsersBeforeCleaning)
+            {
+                var browserSettings = settings.Clone();
+                browserSettings.CleanChromeCache = plan.Findings.Any(f => f.Group == CleanerGroup.Chrome);
+                browserSettings.CleanEdgeCache = plan.Findings.Any(f => f.Group == CleanerGroup.Edge);
+                browserSettings.ClearBrowserSiteStorage = false;
+                var running = _ctx.Browsers?.GetBrowsersThatWouldBeClosed(browserSettings) ?? Array.Empty<string>();
+                if (running.Count > 0)
+                {
+                    for (var seconds = 5; seconds > 0; seconds--)
+                    {
+                        OperationText = $"Closing {string.Join(" and ", running)} in {seconds}s. Cancel to keep open.";
+                        await Task.Delay(TimeSpan.FromSeconds(1), _ctx.Time, token);
+                    }
+                }
+            }
             var cleanProgress = new DispatchedProgress<EngineProgress>(_ctx.Dispatcher, p => ApplyProgress(runId, p));
             var clean = await Task.Run(() => _ctx.Engine.CleanAsync(plan, settings, cleanProgress, token), CancellationToken.None).ConfigureAwait(true);
             _clean = clean;
@@ -568,33 +583,6 @@ public sealed class MainViewModel : ObservableObject
         {
             _cts?.Dispose();
             _cts = null;
-        }
-    }
-
-    /// <summary>
-    /// Running browsers can only have their cache cleaned after they are closed. Ask once; if the user declines, the clean still runs
-    /// but leaves the running browsers alone.
-    /// </summary>
-    private async Task ConfirmBrowserCloseAsync(Clenzy.Core.Configuration.ClenzySettings settings)
-    {
-        var running = _ctx.Browsers?.GetBrowsersThatWouldBeClosed(settings) ?? Array.Empty<string>();
-        if (running.Count == 0 || !settings.AskBeforeClosingBrowsers)
-        {
-            return;
-        }
-
-        var names = string.Join(" and ", running);
-        var plural = running.Count > 1;
-        var ok = await _ctx.Dialogs.ConfirmAsync(
-            $"Close {names} to clean {(plural ? "them" : "it")}?",
-            $"{names} {(plural ? "are" : "is")} running, and a browser's cache cannot be cleaned while it is open.\n\n" +
-            $"Clenzy will close {(plural ? "them" : "it")} politely first and only end what is still running after a few seconds. " +
-            "Your signed-in accounts, saved passwords, cookies, bookmarks and settings are not touched, so you stay signed in. " +
-            "Unsaved text in open pages may be lost.",
-            $"Close {(plural ? "browsers" : names)} and clean", "Skip browsers").ConfigureAwait(true);
-        if (!ok)
-        {
-            settings.CloseBrowsersBeforeCleaning = false;
         }
     }
 
@@ -631,7 +619,9 @@ public sealed class MainViewModel : ObservableObject
 
         foreach (var row in Rows)
         {
-            if (progress.Groups.TryGetValue(row.Group, out var group))
+            if (row.Group == CleanerGroup.Chrome && progress.Groups.TryGetValue(CleanerGroup.Edge, out var edge) && edge.State is GroupState.Scanning or GroupState.Cleaning)
+                row.Set(GroupStatusFormatter.FromProgress(CleanerGroup.Edge, edge));
+            else if (progress.Groups.TryGetValue(row.Group, out var group))
             {
                 row.Set(GroupStatusFormatter.FromProgress(row.Group, group));
             }

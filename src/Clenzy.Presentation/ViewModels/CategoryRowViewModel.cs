@@ -9,10 +9,10 @@ public sealed class CategoryRowViewModel : ObservableObject
     private string _status = "Ready to scan";
     private RowKind _kind = RowKind.Neutral;
 
-    public CategoryRowViewModel(CleanerGroup group, string description)
+    public CategoryRowViewModel(CleanerGroup group, string description, string? title = null)
     {
         Group = group;
-        Title = GroupStatusFormatter.Title(group);
+        Title = title ?? GroupStatusFormatter.Title(group);
         Description = description;
     }
 
