@@ -37,13 +37,13 @@ public sealed class MainViewModelTests
     }
 
     [Fact]
-    public void Initial_state_is_ready_with_five_rows_and_a_clean_now_button()
+    public void Initial_state_is_ready_with_four_rows_and_a_clean_now_button()
     {
         using var h = new PresentationHarness();
 
         Assert.Equal(AppState.Ready, h.Main.State);
         Assert.Equal("Clean Now", h.Main.PrimaryButtonText);
-        Assert.Equal(new[] { "SYSTEM JUNK", "CHROME", "EDGE", "REGISTRY", "PRIVACY" }, h.Main.Rows.Select(r => r.Title));
+        Assert.Equal(new[] { "SYSTEM JUNK", "BROWSER", "REGISTRY", "PRIVACY" }, h.Main.Rows.Select(r => r.Title));
         Assert.True(h.Main.PrimaryCommand.CanExecute(null));
         Assert.False(h.Main.CancelCommand.CanExecute(null));
         Assert.Equal("Never cleaned yet", h.Main.LastCleanedText);
