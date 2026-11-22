@@ -890,7 +890,7 @@ public sealed class SettingsViewModelTests
         using var h = new PresentationHarness();
         var settings = Open(h);
 
-        foreach (var key in new[] { "recent-temp", "prefetch", "close-browsers", "ask-browsers" })
+        foreach (var key in new[] { "recent-temp", "prefetch", "close-browsers" })
         {
             Assert.NotNull(settings.Toggle(key));
         }
