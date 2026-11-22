@@ -230,7 +230,20 @@ public partial class Windows11CleanupWindow : Window
     public async Task RunSandboxSmokeAsync(string screenshot)
     {
         if (ScanMenu.Visibility != Visibility.Visible || ReviewPanel.Visibility == Visibility.Visible) throw new InvalidOperationException("Scan chooser missing.");
+        var fixture = Directory.CreateTempSubdirectory("Clenzy-profile-");
+        try
+        {
+            const string id = "abcdefghijklmnopabcdefghijklmnop";
+            var version = Directory.CreateDirectory(Path.Combine(fixture.FullName, "Extensions", id, "1.0"));
+            File.WriteAllText(Path.Combine(version.FullName, "manifest.json"), """{"name":"__MSG_title__","default_locale":"en"}""");
+            var locale = Directory.CreateDirectory(Path.Combine(version.FullName, "_locales","en"));
+            File.WriteAllText(Path.Combine(locale.FullName, "messages.json"), """{"title":{"message":"Test extension"}}""");
+            var extension = BrowserInventory.ReadExtensions(fixture.FullName).Single();
+            if (extension.Id != id || extension.Name != "Test extension") throw new InvalidOperationException("Browser extension inventory failed.");
+        }
+        finally { fixture.Delete(true); }
         MalwareClick(this, new RoutedEventArgs());
+        if (MalwarePanel.Visibility != Visibility.Visible || RemoveThreat.IsEnabled) throw new InvalidOperationException("Threat scan initial state failed.");
         DoneClick(this, new RoutedEventArgs());
         if (ScanMenu.Visibility != Visibility.Visible) throw new InvalidOperationException("Malware back navigation failed.");
         backend = new SandboxOptimizationBackend(); engine = new(backend, ReportsRoot);

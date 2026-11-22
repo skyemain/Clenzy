@@ -18,7 +18,7 @@ internal static class BrowserInventory
             string product = edge ? @"Microsoft\Edge" : @"Google\Chrome";
             var root = Path.Combine(local, product, "User Data");
             if (!Directory.Exists(root)) continue;
-            var exe = new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86, Environment.SpecialFolder.LocalApplicationData }
+            var exe = new[] { Environment.SpecialFolder.ProgramFiles, Environment.SpecialFolder.ProgramFilesX86 }
                 .Select(folder => Path.Combine(Environment.GetFolderPath(folder), product, "Application", edge ? "msedge.exe" : "chrome.exe"))
                 .FirstOrDefault(File.Exists);
             if (exe is null) continue;

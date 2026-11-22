@@ -10,7 +10,7 @@ internal static class ThreatScanner
 {
     private const string Release = "1.5.5";
     private const string Digest = "90169F5E551010BFBD0208B50D9B2FA8988EF396CCCBD46B0CC8CAE03E22A4A4";
-    private static readonly string Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Clenzy", "Scanner");
+    private static readonly string Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Clenzy", "Scanner");
     private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromMinutes(10) };
     internal record Finding(string File, string Signature)
     {
@@ -23,7 +23,7 @@ internal static class ThreatScanner
         var install = Path.Combine(Root, Release);
         if (!Directory.Exists(install))
         {
-            var stage = Directory.CreateTempSubdirectory("Clenzy-scan-");
+            var stage = Directory.CreateDirectory(Path.Combine(Root, Guid.NewGuid().ToString("N")));
             var payload = Path.Combine(Root, Guid.NewGuid().ToString("N"));
             try
             {
