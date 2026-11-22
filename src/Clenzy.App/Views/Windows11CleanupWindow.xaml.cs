@@ -126,9 +126,9 @@ public partial class Windows11CleanupWindow : Window
             foreach (var profile in profiles)
             {
                 ProfileRows.Children.Add(new System.Windows.Controls.TextBlock { Text = profile.Title, FontSize = 20, Margin = new Thickness(0,18,0,6) });
-                AddBrowserAction(profile, "Change default search engine", profile.Edge ? "settings/search" : "settings/searchEngines");
+                AddBrowserAction(profile, "Change default search engine", null);
                 foreach (var extension in profile.Extensions)
-                    AddBrowserAction(profile, extension.Name + " · Review / remove", "extensions/?id=" + extension.Id);
+                    AddBrowserAction(profile, extension.Name + " · Review / remove", extension.Id);
             }
             Status.Text = profiles.Count == 0 ? "No Chrome or Edge profiles found." : "Choose an extension to confirm removal in its browser. Search settings let you choose Google or Bing. Refresh after making changes.";
         }
@@ -136,15 +136,15 @@ public partial class Windows11CleanupWindow : Window
         finally { SetBusy(false); }
     }
 
-    private void AddBrowserAction(BrowserInventory.Profile profile, string label, string page)
+    private void AddBrowserAction(BrowserInventory.Profile profile, string label, string? extensionId)
     {
         var button = new System.Windows.Controls.Button { Content = label, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0,3,0,3) };
-        button.Click += (_, _) =>
+        button.Click += async (_, _) =>
         {
-            var start = new System.Diagnostics.ProcessStartInfo(profile.Executable) { UseShellExecute = false };
-            start.ArgumentList.Add("--profile-directory=" + profile.Directory);
-            start.ArgumentList.Add((profile.Edge ? "edge://" : "chrome://") + page);
-            Launch(start, "Complete the change in " + profile.Title + ", then refresh profiles.");
+            ProfileRows.IsEnabled = false;
+            try { Status.Text = await BrowserRepairPage.OpenAsync(profile, label, extensionId); }
+            catch (Exception ex) { Status.Text = "Browser navigation interrupted. Open " + BrowserRepairPage.Address(profile.Edge, extensionId) + " in " + profile.Title + ". " + ex.Message; }
+            finally { ProfileRows.IsEnabled = true; }
         };
         ProfileRows.Children.Add(button);
     }
@@ -238,6 +238,11 @@ public partial class Windows11CleanupWindow : Window
             File.WriteAllText(Path.Combine(version.FullName, "manifest.json"), """{"name":"__MSG_title__","default_locale":"en"}""");
             var locale = Directory.CreateDirectory(Path.Combine(version.FullName, "_locales","en"));
             File.WriteAllText(Path.Combine(locale.FullName, "messages.json"), """{"title":{"message":"Test extension"}}""");
+            if (BrowserRepairPage.Address(true, id) != "edge://extensions/?id=" + id ||
+                BrowserRepairPage.Address(false, id) != "chrome://extensions/?id=" + id ||
+                BrowserRepairPage.Address(true, null) != "edge://settings/search" ||
+                BrowserRepairPage.Address(false, null) != "chrome://settings/searchEngines")
+                throw new InvalidOperationException("Browser repair destination mismatch.");
             var extension = BrowserInventory.ReadExtensions(fixture.FullName).Single();
             if (extension.Id != id || extension.Name != "Test extension") throw new InvalidOperationException("Browser extension inventory failed.");
         }
