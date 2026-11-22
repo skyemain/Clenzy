@@ -126,11 +126,11 @@ public partial class Windows11CleanupWindow : Window
             foreach (var profile in profiles)
             {
                 ProfileRows.Children.Add(new System.Windows.Controls.TextBlock { Text = profile.Title, FontSize = 20, Margin = new Thickness(0,18,0,6) });
-                AddBrowserAction(profile, "Change default search engine", null);
+                AddBrowserAction(profile, profile.Edge ? "Reset search to Bing" : "Reset search to Google", null);
                 foreach (var extension in profile.Extensions)
-                    AddBrowserAction(profile, extension.Name + " · Review / remove", extension.Id);
+                    AddBrowserAction(profile, "Remove " + extension.Name, extension.Id);
             }
-            Status.Text = profiles.Count == 0 ? "No Chrome or Edge profiles found." : "Choose an extension to confirm removal in its browser. Search settings let you choose Google or Bing. Refresh after making changes.";
+            Status.Text = profiles.Count == 0 ? "No Chrome or Edge profiles found." : "Select Remove to start uninstalling an extension. Reset restores Bing in Edge or Google in Chrome. Refresh after making changes.";
         }
         catch (Exception ex) { Status.Text = "Could not read browser profiles. " + ex.Message; }
         finally { SetBusy(false); }
@@ -240,7 +240,7 @@ public partial class Windows11CleanupWindow : Window
             File.WriteAllText(Path.Combine(locale.FullName, "messages.json"), """{"title":{"message":"Test extension"}}""");
             if (BrowserRepairPage.Address(true, id) != "edge://extensions/?id=" + id ||
                 BrowserRepairPage.Address(false, id) != "chrome://extensions/?id=" + id ||
-                BrowserRepairPage.Address(true, null) != "edge://settings/search" ||
+                BrowserRepairPage.Address(true, null) != "edge://settings/searchEngines" ||
                 BrowserRepairPage.Address(false, null) != "chrome://settings/searchEngines")
                 throw new InvalidOperationException("Browser repair destination mismatch.");
             var extension = BrowserInventory.ReadExtensions(fixture.FullName).Single();

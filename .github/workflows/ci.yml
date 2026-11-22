@@ -73,6 +73,7 @@ jobs:
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           $tag = "windows-v$version"
+          if ($version -eq '1.0.0') { $tag = 'windows-v1.0.0-browser-repair' }
           $title = "Clenzy $version for Windows"
           $notes = 'Windows x64 candidate. Includes the refreshed visual theme and the existing reviewed cleanup, privacy, startup, and optional services workflows. The build is unsigned; live Windows 11 validation remains outstanding.'
           $assets = @("release/Clenzy-$version-win-x64.exe", 'release/SHA256SUMS.txt', 'release/THIRD-PARTY-NOTICES.txt')
