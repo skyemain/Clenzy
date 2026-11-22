@@ -112,7 +112,7 @@ internal static class BrowserRepairPage
                     var remove = Elements(doc, Condition.TrueCondition).FirstOrDefault(e =>
                         e.Current.AutomationId == "remove-extension" ||
                         (e.Current.ControlType == ControlType.Button &&
-                         new[] { "Remove extension", "Remove from Microsoft Edge", "Remove from Chrome" }.Contains(e.Current.Name, StringComparer.OrdinalIgnoreCase)));
+                         new[] { "Remove extension", "Remove", "Remove from Microsoft Edge", "Remove from Chrome" }.Contains(e.Current.Name, StringComparer.OrdinalIgnoreCase)));
                     if (remove != null && Invoke(remove)) return "Confirm removal in the browser, then refresh profiles.";
                     continue;
                 }
@@ -121,7 +121,7 @@ internal static class BrowserRepairPage
                     var item = Elements(doc, Condition.TrueCondition).FirstOrDefault(e =>
                         e.Current.IsEnabled && !e.Current.IsOffscreen &&
                         (e.Current.AutomationId is "makeDefault" or "makeDefaultOption" ||
-                        e.Current.Name.Equals("Make default", StringComparison.OrdinalIgnoreCase)));
+                        new[] { "Make default", "Set as default" }.Contains(e.Current.Name, StringComparer.OrdinalIgnoreCase)));
                     if (item != null && Invoke(item)) resetRequested = true;
                     continue;
                 }
@@ -133,12 +133,13 @@ internal static class BrowserRepairPage
                     AutomationElement? row = button;
                     for (int level = 0; level < 7 && row != null; level++, row = TreeWalker.ControlViewWalker.GetParent(row))
                     {
-                        if (row.Current.ControlType != ControlType.DataItem && row.Current.ControlType != ControlType.Group && row.Current.ControlType != ControlType.Custom) continue;
+                        if (row.Equals(doc)) break;
+                        var providerNames = edge ? new[] { "Bing", "Microsoft Bing" } : new[] { "Google" };
                         var cells = Elements(row, Condition.TrueCondition).Select(e => e.Current.Name.Trim()).ToArray();
                         if (Elements(row, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)).Count(e => e.Current.Name == name || e.Current.Name.Contains("more actions", StringComparison.OrdinalIgnoreCase)) != 1) continue;
                         if (!cells.Any(n => n.Equals(provider + ".com", StringComparison.OrdinalIgnoreCase)) ||
-                            !cells.Any(n => n.Equals(provider,StringComparison.OrdinalIgnoreCase) || n.Equals(provider + " (Default)",StringComparison.OrdinalIgnoreCase))) continue;
-                        if (cells.Any(n => n.Equals("Default",StringComparison.OrdinalIgnoreCase) || n.Equals(provider + " (Default)",StringComparison.OrdinalIgnoreCase)))
+                            !cells.Any(n => providerNames.Any(p => n.Equals(p,StringComparison.OrdinalIgnoreCase) || n.Equals(p + " (Default)",StringComparison.OrdinalIgnoreCase)))) continue;
+                        if (cells.Any(n => n.Equals("Default",StringComparison.OrdinalIgnoreCase) || providerNames.Any(p => n.Equals(p + " (Default)",StringComparison.OrdinalIgnoreCase))))
                             return provider + " is the default search engine.";
                         if (!resetRequested && Invoke(button)) menuOpened = true;
                         break;
